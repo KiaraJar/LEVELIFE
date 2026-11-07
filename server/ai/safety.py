@@ -15,7 +15,7 @@ _DIAGNOSIS = re.compile(
 )
 
 # Vocabulario clínico que el agente no debe atribuir al estudiante.
-_CLINICAL = re.compile(r"diagn[oó]stic|trastorno|patolog|depresi[oó]n cl[ií]nica|personalidad (evitativa|dependiente)", re.I)
+_CLINICAL = re.compile(r"diagn[oó]stic|trastorno|patolog|depresi[oó]n|depresiv|burnout|s[ií]ntoma|ansiedad cl[ií]nica|personalidad (evitativa|dependiente)", re.I)
 
 RISK_REPLY = (
     "Lo que me cuentas importa, y gracias por decirlo. Soy parte de un juego y no puedo darte la ayuda "

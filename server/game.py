@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 from flask import Blueprint, current_app, g, jsonify
 
@@ -11,7 +12,10 @@ from .ai.patterns import build_facts, dimension_activity, find_choice
 from .ai.safety import RISK_REPLY, has_risk
 from .auth import ai_allowed, body, consent_of, login_required, play_required, terms_current
 from .content.stories import STORIES, validate_stories
-from .content.world import AVATAR_OPTIONS, DIMENSIONS, FREE_ACCESSORIES, FREE_TOPS, SIGNALS, ZONES
+from .content.world import (
+    AVATAR_OPTIONS, DIMENSIONS, FREE_ACCESSORIES, FREE_TOPS, HUD_INFO, MISSION_RECOVERY, REST_RECOVERY, REST_SECONDS, SIGNALS, START_RESOURCES, ZONES,
+    choice_impact,
+)
 from .db import get_db
 from .errors import ApiError
 from .gamification import (
@@ -33,6 +37,19 @@ def _user():
 
 def _badges_fresh(db, uid: int) -> list[dict]:
     return grant_badges(db, uid, len(STORIES))
+
+
+def _resources(db, uid: int) -> dict:
+    row = db.execute("SELECT energy, tension, performance, social FROM resources WHERE user_id = ?", (uid,)).fetchone()
+    return dict(row) if row else dict(START_RESOURCES)
+
+
+def _apply_resources(db, uid: int, change: dict) -> dict:
+    current = _resources(db, uid)
+    fresh = {k: max(0, min(100, current[k] + change[k])) for k in current}
+    db.execute("INSERT OR REPLACE INTO resources (user_id, energy, tension, performance, social) VALUES (?,?,?,?,?)",
+               (uid, fresh["energy"], fresh["tension"], fresh["performance"], fresh["social"]))
+    return fresh
 
 
 def _mission_view(row) -> dict:
@@ -66,6 +83,8 @@ def _state() -> dict:
         "consent": consent and {"ai": bool(consent["ai_consent"]), "version": consent["docs_version"], "at": consent["created_at"]},
         "docs_version": config.DOCS_VERSION,
         "level": level,
+        "hud": HUD_INFO,
+        "resources": _resources(db, uid),
         "zones": zones,
         "stories": [
             {"id": s["id"], "title": s["title"], "zone": s["zone"], "blurb": s["blurb"], "npc": s["npc"],
@@ -166,6 +185,22 @@ def visit():
     return jsonify(xp=reward, new_badges=fresh, state=_state())
 
 
+@game_api.post("/rest")
+@play_required
+def rest():
+    """Sentarse o descansar recupera recursos, con una espera para que no se abuse."""
+    db = get_db()
+    uid = g.user["id"]
+    last = db.execute("SELECT at FROM rests WHERE user_id = ?", (uid,)).fetchone()
+    now = time.time()
+    if last and now - last["at"] < REST_SECONDS:
+        return jsonify(rested=False, resources=_resources(db, uid))
+    db.execute("INSERT OR REPLACE INTO rests (user_id, at) VALUES (?,?)", (uid, now))
+    resources = _apply_resources(db, uid, REST_RECOVERY)
+    db.commit()
+    return jsonify(rested=True, resources=resources)
+
+
 # ---------------------------------------------------------------- Historias
 def _public_node(story: dict, node_id: str) -> dict:
     """Lo que ve el navegador. Nunca incluye las señales del análisis."""
@@ -174,7 +209,7 @@ def _public_node(story: dict, node_id: str) -> dict:
     if "end" in node:
         public.update(end=node["end"], reflect=node["reflect"])
     else:
-        public["choices"] = [{"id": c["id"], "text": c["text"]} for c in node["choices"]]
+        public["choices"] = [{"id": c["id"], "text": c["text"], "impact": choice_impact(c)} for c in node["choices"]]
     return public
 
 
@@ -218,8 +253,9 @@ def run_choose(run_id: int):
         db.execute("INSERT INTO decisions (run_id, user_id, story_id, node, choice) VALUES (?,?,?,?,?)",
                    (run_id, g.user["id"], run["story_id"], run["node"], choice_id))
     db.execute("UPDATE story_runs SET node = ? WHERE id = ?", (choice["next"], run_id))
+    resources = _apply_resources(db, g.user["id"], choice_impact(choice))
     db.commit()
-    return jsonify(node=_public_node(story, choice["next"]))
+    return jsonify(node=_public_node(story, choice["next"]), resources=resources)
 
 
 @game_api.post("/runs/<int:run_id>/finish")
@@ -373,6 +409,7 @@ def mission_complete(mission_id: int):
                (note, feedback, mission_id))
     xp = XP_MISSION[mission["difficulty"]]
     add_xp(db, uid, xp)
+    _apply_resources(db, uid, MISSION_RECOVERY)
     touch_day(db, uid)
     fresh = _badges_fresh(db, uid)
     db.commit()
@@ -452,6 +489,8 @@ def my_records():
                           "decision": choice and choice["text"],
                           "relacionado_con": [SIGNALS[s]["phrase"] for s in choice["signals"]] if choice else []})
     return jsonify(
+        recursos=_resources(db, uid),
+        semanas=table("SELECT tasks, day, plan, created_at FROM weeks WHERE user_id = ?"),
         cuenta={"nombre": g.user["name"], "usuario": g.user["nickname"], "correo": g.user["email"], "creada": g.user["created_at"]},
         consentimientos=table("SELECT docs_version, terms_accepted, privacy_read, ai_consent, created_at FROM consents WHERE user_id = ?"),
         decisiones=decisions,
@@ -470,6 +509,8 @@ def delete_records():
     uid = g.user["id"]
     for sql in (
         "DELETE FROM decisions WHERE user_id = ?",
+        "DELETE FROM resources WHERE user_id = ?",
+        "DELETE FROM weeks WHERE user_id = ?",
         "DELETE FROM analyses WHERE user_id = ?",
         "DELETE FROM chat_messages WHERE user_id = ?",
         "DELETE FROM missions WHERE user_id = ? AND status != 'completada'",

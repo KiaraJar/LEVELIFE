@@ -7,6 +7,7 @@ from . import config, db
 from .auth import auth_api
 from .errors import ApiError
 from .game import game_api
+from .week import week_api
 
 
 def create_app(db_path: str | None = None) -> Flask:
@@ -16,6 +17,7 @@ def create_app(db_path: str | None = None) -> Flask:
     db.init_app(app)
     app.register_blueprint(auth_api, url_prefix="/api/auth")
     app.register_blueprint(game_api, url_prefix="/api")
+    app.register_blueprint(week_api, url_prefix="/api")
 
     @app.get("/")
     def index():

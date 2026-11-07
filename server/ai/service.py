@@ -134,6 +134,42 @@ def mission_feedback(db: sqlite3.Connection, user_id: int, mission: dict, feelin
         return None
 
 
+def generate_week(tareas: list[dict], cantidad: int, area: str, conflictos: list[str]) -> list[dict] | None:
+    agente = get_agent()
+    if agente is None:
+        return None
+    try:
+        return agente.generate_week(tareas, cantidad, area, conflictos)
+    except Exception as error:
+        log.warning("Vela no pudo crear los casos (%s)", type(error).__name__)
+        return None
+
+
+def style_comment(casos: list[dict]) -> str | None:
+    agente = get_agent()
+    if agente is None:
+        return None
+    decisiones = [{"caso": c["scene"], "eligio": c["options"][c["chosen"]]["text"]} for c in casos if "chosen" in c]
+    try:
+        return agente.style_comment(decisiones)
+    except Exception as error:
+        log.warning("Vela no pudo comentar (%s)", type(error).__name__)
+        return None
+
+
+def week_plan(tareas: list[dict], casos: list[dict], patrones: list[dict], recursos: dict, area: str, dificiles: list[dict]) -> dict | None:
+    agente = get_agent()
+    if agente is None:
+        return None
+    decisiones = [{"actividad": c.get("task"), "caso": c["scene"], "eligio": c["options"][c["chosen"]]["text"],
+                   "senales": c["options"][c["chosen"]]["signals"]} for c in casos if "chosen" in c]
+    try:
+        return agente.week_plan(tareas, decisiones, patrones, recursos, area, dificiles)
+    except Exception as error:
+        log.warning("Vela no pudo crear el plan (%s)", type(error).__name__)
+        return None
+
+
 def chat(db: sqlite3.Connection, user_id: int, message: str, consented: bool) -> dict:
     """Las guardas corren antes: un mensaje de riesgo nunca llega al modelo."""
     risk = safety.has_risk(message)

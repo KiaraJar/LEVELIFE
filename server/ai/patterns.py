@@ -65,7 +65,9 @@ def build_context(db: sqlite3.Connection, user_id: int) -> dict:
             # Un texto con señales de riesgo se atiende con ayuda fija y nunca llega al modelo.
             "reflection": None if reflection and has_risk(reflection) else reflection,
         })
-    return {**facts, "history": history, "dimensions": dimension_activity(db, user_id)}
+    resources = db.execute("SELECT energy, tension, performance, social FROM resources WHERE user_id = ?", (user_id,)).fetchone()
+    return {**facts, "history": history, "dimensions": dimension_activity(db, user_id),
+            "resources": dict(resources) if resources else None}
 
 
 def dimension_activity(db: sqlite3.Connection, user_id: int) -> dict:
