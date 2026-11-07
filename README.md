@@ -1,9 +1,7 @@
 # LEVELIFE
 
-RPG 2D en pixel art para el bienestar universitario. El estudiante explora un campus, vive
+Es un videojuego en RPG 2D para el bienestar universitario. El estudiante explora el campus de su universidad, vive
 historias con decisiones y recibe misiones para su vida cotidiana.
-
-**Explorar → Interactuar → Decidir → Reflexionar → Analizar → Recibir misiones → Actuar → Evolucionar**
 
 ## Cómo jugar
 
