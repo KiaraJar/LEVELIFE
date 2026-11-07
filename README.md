@@ -20,13 +20,20 @@ python -m venv .venv
 | Interactuar | Espacio, Enter o E | A |
 | Menú | Esc o M | B |
 
-## Motor de análisis
+## Agente de IA
 
-Hoy funciona el **motor simulado** (`server/ai/simulated.py`): son reglas locales, no IA, y el juego
-lo indica en cada pantalla donde aparece. Para conectar un modelo real, crea un motor con los mismos
-métodos (`analyze`, `new_missions`, `adapt_mission`, `mission_feedback`, `chat`) y devuélvelo desde
-`get_engine()` en `server/ai/service.py`. Antes de enviar datos a un servicio externo, actualiza la
-política de privacidad y sube `DOCS_VERSION` en `server/config.py`: así se pedirá aceptar de nuevo.
+Vela es la agente del juego (`server/ai/agent.py`). Con sus herramientas de solo lectura revisa las
+señales, las decisiones, las reflexiones, las misiones y el avance de cada estudiante. Con eso analiza
+patrones, crea misiones personalizadas, ajusta las que se le piden, comenta las completadas y conversa.
+
+Para activarla:
+
+1. Copia `.env.example` como `.env`.
+2. Pon tu clave en `GEMINI_API_KEY`. Se crea gratis en Google AI Studio.
+3. Reinicia el juego.
+
+Sin clave, Vela aparece como no conectada, no hay análisis y solo se ofrecen misiones generales
+del catálogo, identificadas como tales. Nunca se simula un análisis.
 
 ## Estructura
 
@@ -37,11 +44,11 @@ server/
   game.py                 estado, historias, misiones, progreso, asistente y privacidad
   gamification.py         XP, niveles, insignias y recompensas
   content/stories.py      historias ramificadas (se validan al arrancar)
-  content/missions.py     catálogo de misiones del motor simulado
+  content/missions.py     catálogo: inspiración del agente y misiones generales
   content/world.py        dimensiones, señales, zonas y opciones de personaje
   content/legal.py        términos y política de privacidad
   ai/patterns.py          hechos comparables a partir de las decisiones
-  ai/simulated.py         motor local por reglas
+  ai/agent.py             agente de IA y sus herramientas
   ai/safety.py            guardas ante riesgo y pedidos de diagnóstico
   ai/service.py           orquestación
 web/js/
@@ -59,7 +66,8 @@ web/js/
 - **Sin respuestas correctas.** XP, insignias y progreso no dependen de lo elegido. Hay una prueba para eso.
 - **Una decisión no es un patrón.** Una señal solo es recurrente si aparece en dos o más historias.
 - **Consentimiento separado.** Aceptar los términos no autoriza el análisis; sin esa autorización no se guarda qué elegiste.
-- **Riesgo primero.** Un mensaje que sugiere riesgo recibe orientación fija, sin pasar por ningún motor.
+- **Riesgo primero.** Un mensaje que sugiere riesgo recibe orientación fija y nunca llega al modelo.
+- **Datos mínimos.** Nombre, usuario y correo no se envían al modelo.
 - **Control de los datos.** Se pueden consultar, descargar, corregir y borrar desde Configuración.
 
 ## Agregar una historia
@@ -77,6 +85,7 @@ web/js/
 ```
 
 `e2e.py` juega una partida real en Chrome, en escritorio y celular, con capturas en `tests/capturas/`.
+Usa una API de IA falsa local: no gasta créditos.
 
 ## Antes de usarlo con estudiantes reales
 
