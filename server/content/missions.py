@@ -1,4 +1,4 @@
-"""Catálogo del motor simulado. Cada misión se elige por señal o por dimensión."""
+"""Catálogo de misiones: inspira al agente y aporta misiones generales."""
 from __future__ import annotations
 
 
