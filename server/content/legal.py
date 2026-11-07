@@ -27,7 +27,7 @@ PRIVACY = [
     ("Uso para personalizar actividades",
      "Las decisiones y reflexiones autorizadas se usan para identificar patrones entre historias y proponerte misiones. No se usan para etiquetarte ni discriminarte."),
     ("Funcionamiento del análisis",
-     "Si autorizas el análisis, tus decisiones, reflexiones, notas de misiones y mensajes a Vela se envían a Anthropic, proveedor del modelo de IA, para generar las respuestas. Tu nombre, usuario y correo no se incluyen, pero evita escribir datos personales en esos textos."),
+     "Si autorizas el análisis, tus decisiones, reflexiones, notas de misiones y mensajes a Vela se envían a Google, proveedor del modelo de IA, para generar las respuestas. En su plan gratuito, Google puede usar ese contenido para mejorar sus productos, y puede ser revisado por personas. Tu nombre, usuario y correo no se incluyen, pero evita escribir datos personales o sensibles en esos textos."),
     ("Almacenamiento y protección",
      "Los datos se guardan en la base de datos del servidor. Las contraseñas y los códigos de recuperación se almacenan solo como hash, y la sesión usa una cookie protegida."),
     ("Tus derechos",
@@ -37,7 +37,7 @@ PRIVACY = [
 ]
 
 AI_CONSENT = (
-    "Autorizo que se registren mis decisiones y reflexiones y que se envíen, junto con mis mensajes a Vela, a Anthropic para identificar patrones y proponerme misiones. "
+    "Autorizo que se registren mis decisiones y reflexiones y que se envíen, junto con mis mensajes a Vela, a Google para identificar patrones y proponerme misiones. "
     "Es opcional: sin esto puedes jugar igual y recibirás misiones generales."
 )
 

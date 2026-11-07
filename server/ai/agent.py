@@ -1,6 +1,7 @@
-"""Vela: el agente de IA de LEVELIFE, construido sobre el SDK oficial de Anthropic.
+"""Vela: el agente de IA de LEVELIFE, construido sobre el SDK oficial de Google.
 
-Vela investiga con herramientas de solo lectura y entrega resultados con formato fijo.
+Vela trabaja en dos pasos: investiga con herramientas de solo lectura y luego entrega
+el resultado con formato fijo. Así funciona igual aunque el modelo no combine ambas cosas.
 Cada ejecución recibe una instantánea de un solo estudiante, sin nombre, usuario ni correo,
 de modo que no puede consultar datos de nadie más.
 """
@@ -10,8 +11,8 @@ import json
 import logging
 from typing import Literal
 
-import anthropic
-from anthropic import beta_tool
+from google import genai
+from google.genai import errors, types
 from pydantic import BaseModel, Field
 
 from .. import config
@@ -21,14 +22,16 @@ from .safety import output_is_safe
 
 log = logging.getLogger("levelife.agente")
 
-BETA_RESPALDO = "server-side-fallback-2026-07-01"
-MAX_ITERACIONES = 8
+MAX_CONSULTAS = 4  # el plan gratuito limita las solicitudes: cada consulta a una herramienta cuenta
+TIEMPO_MAXIMO_MS = 30_000  # por modelo
+PASAJEROS = {429, 500, 503, 504}  # saturación o cupo agotado: vale la pena probar otro modelo
 
 SISTEMA = """Eres Vela, la agente de bienestar de LEVELIFE, un videojuego RPG para estudiantes universitarios. Acompañas a cada estudiante a convertir lo que decide en las historias del juego en reflexión y en acciones concretas para su vida cotidiana.
 
 Tu forma de hablar:
 - Hablas en español, en segunda persona, con calidez y sin sermonear. No usas marcas de género hacia el estudiante.
 - Eres honesta sobre lo que eres: una IA dentro de un juego, no una persona ni una profesional de la salud.
+- En la conversación respondes en máximo 80 palabras, en texto simple, sin listas ni formato Markdown: tus mensajes aparecen en una ventana pequeña del juego.
 
 Lo que significan los datos:
 - Las historias son ficción y no tienen respuestas correctas. Muestran qué se eligió ahí, no quién es la persona.
@@ -111,12 +114,10 @@ def crear_herramientas(ctx: dict) -> list:
     def como_json(valor) -> str:
         return json.dumps(valor, ensure_ascii=False, sort_keys=True)
 
-    @beta_tool
     def ver_senales() -> str:
         """Muestra las señales detectadas, sus historias y si son recurrentes. Consúltala primero."""
         return como_json({"historias_vividas": ctx["stories_played"], "decisiones": ctx["decisions"], "senales": ctx["signals"]})
 
-    @beta_tool
     def ver_historias(historia: str = "") -> str:
         """Muestra las decisiones, desenlaces y reflexiones de cada historia.
 
@@ -125,17 +126,14 @@ def crear_herramientas(ctx: dict) -> list:
         """
         return como_json([h for h in ctx["history"] if not historia or h["story"] == historia])
 
-    @beta_tool
     def ver_misiones() -> str:
         """Muestra las misiones existentes con su estado y el motivo si fueron rechazadas."""
         return como_json(ctx["missions"])
 
-    @beta_tool
     def ver_avance() -> str:
         """Muestra las misiones completadas por dimensión de bienestar."""
         return como_json(ctx["dimensions"])
 
-    @beta_tool
     def ver_catalogo(dimension: str = "") -> str:
         """Muestra ideas de misiones como inspiración.
 
@@ -146,6 +144,15 @@ def crear_herramientas(ctx: dict) -> list:
                           for m in CATALOG if not dimension or m["dimension"] == dimension])
 
     return [ver_senales, ver_historias, ver_misiones, ver_avance, ver_catalogo]
+
+
+def _turno(mensaje: dict) -> types.Content:
+    rol = "model" if mensaje["role"] == "assistant" else "user"
+    return types.Content(role=rol, parts=[types.Part(text=mensaje["content"])])
+
+
+def _tiene_llamada(contenido: types.Content) -> bool:
+    return any(p.function_call for p in contenido.parts or [])
 
 
 def _limpiar_mision(mision: MisionOut) -> dict:
@@ -165,42 +172,75 @@ class Agente:
     name = "agente"
     label = "Vela, agente de IA"
 
-    def __init__(self, cliente: anthropic.Anthropic | None = None):
-        self.cliente = cliente or anthropic.Anthropic(timeout=60.0, max_retries=1)
+    def __init__(self, cliente: genai.Client | None = None):
+        opciones = types.HttpOptions(timeout=TIEMPO_MAXIMO_MS, base_url=config.AI_BASE_URL or None)
+        self.cliente = cliente or genai.Client(api_key=config.ai_key(), http_options=opciones)
 
-    def _ejecutar(self, tarea: str, ctx: dict, formato=None, esfuerzo: str = "medium", historial: list | None = None):
-        extras = {"output_format": formato} if formato else {}
-        ejecutor = self.cliente.beta.messages.tool_runner(
-            model=config.AI_MODEL,
-            max_tokens=16000,
-            max_iterations=MAX_ITERACIONES,
-            betas=[BETA_RESPALDO],
-            fallbacks="default",
-            # Lo fijo se reutiliza entre estudiantes; la cola crece con cada herramienta.
-            system=[{"type": "text", "text": SISTEMA, "cache_control": {"type": "ephemeral"}}],
-            cache_control={"type": "ephemeral"},
-            output_config={"effort": esfuerzo},
+    def _generar(self, contenidos: list, ajustes: types.GenerateContentConfig):
+        """Prueba los modelos en orden. Un error de otro tipo no se arregla cambiando de modelo."""
+        for modelo in config.AI_MODELS:
+            try:
+                return self.cliente.models.generate_content(model=modelo, contents=contenidos, config=ajustes)
+            except errors.APIError as error:
+                if error.code not in PASAJEROS:
+                    raise
+                log.warning("modelo %s no disponible (%s)", modelo, error.code)
+        raise AgenteNoDisponible("ningún modelo disponible")
+
+    @staticmethod
+    def _revisar(respuesta) -> None:
+        candidatos = respuesta.candidates or []
+        if not candidatos or candidatos[0].finish_reason not in (None, types.FinishReason.STOP):
+            motivo = candidatos[0].finish_reason if candidatos else respuesta.prompt_feedback
+            raise AgenteNoDisponible(f"sin respuesta útil: {motivo}")
+        uso = respuesta.usage_metadata
+        if uso:
+            log.info("agente: entrada=%s caché=%s salida=%s", uso.prompt_token_count,
+                     uso.cached_content_token_count, uso.candidates_token_count)
+
+    def _investigar(self, tarea: str, ctx: dict, historial: list | None = None):
+        """Deja que Vela consulte sus herramientas. El SDK ejecuta el ciclo y lo limita."""
+        contenidos = [*(_turno(m) for m in historial or []), _turno({"role": "user", "content": tarea})]
+        respuesta = self._generar(contenidos, types.GenerateContentConfig(
+            system_instruction=SISTEMA,
             tools=crear_herramientas(ctx),
-            messages=[*(historial or []), {"role": "user", "content": tarea}],
-            **extras,
-        )
-        final = ejecutor.until_done()
-        uso = final.usage
-        log.info("agente %s: entrada=%s caché=%s salida=%s", final.stop_reason, uso.input_tokens,
-                 uso.cache_read_input_tokens, uso.output_tokens)
-        if final.stop_reason != "end_turn":
-            raise AgenteNoDisponible(f"stop_reason={final.stop_reason}")
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(maximum_remote_calls=MAX_CONSULTAS),
+        ))
+        self._revisar(respuesta)
+        recorrido = list(respuesta.automatic_function_calling_history or contenidos)
+        contenido = respuesta.candidates[0].content
+        if contenido and not _tiene_llamada(contenido):
+            recorrido.append(contenido)
+        # Al agotar las consultas puede quedar una llamada sin resultado, que la API no aceptaría.
+        while recorrido and _tiene_llamada(recorrido[-1]):
+            recorrido.pop()
+        return respuesta, recorrido
+
+    def _generar_final(self, recorrido: list, pedido: str, **ajustes):
+        """Último paso, sin herramientas: responde con lo que ya investigó."""
+        final = self._generar([*recorrido, _turno({"role": "user", "content": pedido})],
+                              types.GenerateContentConfig(system_instruction=SISTEMA, **ajustes))
+        self._revisar(final)
         return final
 
-    def _estructurado(self, tarea: str, ctx: dict, formato, esfuerzo: str = "medium"):
-        final = self._ejecutar(tarea, ctx, formato, esfuerzo)
-        if final.parsed_output is None:
-            raise AgenteNoDisponible("sin salida estructurada")
-        return final.parsed_output
+    def _estructurado(self, tarea: str, ctx: dict, formato):
+        _, recorrido = self._investigar(tarea, ctx)
+        final = self._generar_final(
+            recorrido, "Con lo que revisaste, entrega ahora el resultado en el formato pedido.",
+            response_mime_type="application/json", response_json_schema=formato.model_json_schema(),
+        )
+        try:
+            return formato.model_validate_json(final.text or "")
+        except ValueError as error:
+            raise AgenteNoDisponible("salida con formato inválido") from error
 
     def _texto(self, tarea: str, ctx: dict, historial: list | None = None) -> str:
-        final = self._ejecutar(tarea, ctx, esfuerzo="low", historial=historial)
-        texto = "".join(b.text for b in final.content if b.type == "text").strip()
+        respuesta, recorrido = self._investigar(tarea, ctx, historial)
+        partes = respuesta.candidates[0].content.parts if respuesta.candidates[0].content else None
+        texto = "".join(p.text or "" for p in partes or []).strip()
+        if not texto:
+            final = self._generar_final(recorrido, "Con lo que revisaste, responde ahora al mensaje del estudiante.")
+            texto = (final.text or "").strip()
         if not texto:
             raise AgenteNoDisponible("respuesta vacía")
         _exigir_seguro(texto)
@@ -217,14 +257,14 @@ class Agente:
         return datos
 
     def new_missions(self, ctx: dict, cantidad: int) -> list[dict]:
-        resultado: MisionesOut = self._estructurado(TAREA_MISIONES.format(cantidad=cantidad), ctx, MisionesOut, "low")
+        resultado: MisionesOut = self._estructurado(TAREA_MISIONES.format(cantidad=cantidad), ctx, MisionesOut)
         _exigir_seguro(resultado.model_dump())
         return [_limpiar_mision(m) for m in resultado.missions[:cantidad]]
 
     def adapt_mission(self, ctx: dict, mision: dict, pedido: str) -> dict:
         resumen = {k: mision[k] for k in ("title", "description", "objective", "minutes", "difficulty", "frequency")}
         tarea = TAREA_ADAPTAR.format(mision=json.dumps(resumen, ensure_ascii=False), pedido=pedido)
-        resultado: MisionAjustada = self._estructurado(tarea, ctx, MisionAjustada, "low")
+        resultado: MisionAjustada = self._estructurado(tarea, ctx, MisionAjustada)
         datos = resultado.model_dump()
         _exigir_seguro(datos)
         datos["minutes"] = max(1, min(180, int(datos["minutes"])))
