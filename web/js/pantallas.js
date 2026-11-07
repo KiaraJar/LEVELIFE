@@ -28,8 +28,9 @@ export function portada() {
     const l = logo();
     l.className = 'logo';
     const caja = h('div', { class: 'portada' }, l,
-      h('p', { class: 'lema' }, 'Tu historia comienza con una decisión.'),
-      h('p', { class: 'texto' }, 'Explora un mundo lleno de historias, descubre nuevas perspectivas sobre ti mismo y convierte tus decisiones en pequeños pasos hacia una vida universitaria más equilibrada.'),
+      h('p', { class: 'lema' }, 'Practica tu semana antes de vivirla.'),
+      h('p', { class: 'sublema' }, 'Campus FISI · Semana 8: Exámenes Parciales'),
+      h('p', { class: 'texto' }, 'Escribe tus pendientes de la semana de parciales. Vela convierte cada uno en casos dentro de tu campus, analiza tus decisiones y te da misiones para tu vida real.'),
       h('div', { class: 'fila' },
         boton('COMENZAR AVENTURA', () => fin('registro'), 'principal'),
         boton('YA TENGO UNA CUENTA', () => fin('login'))));
@@ -203,13 +204,46 @@ export function editorPersonaje(actual, recompensas, { puedeCancelar = false } =
   });
 }
 
+// ---------------------------------------------------------------- Semana 8
+const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+export function selectorArea(areas) {
+  return new Promise((fin) => {
+    mostrar(ventana('chica', h('h2', {}, '¿Qué estudias?'),
+      h('p', {}, 'Vela adaptará los dilemas a tu área.'),
+      h('div', { class: 'pila' }, areas.map((a) => boton(a.label, () => fin(a.id))))));
+  });
+}
+
+export function formularioSemana(ai) {
+  return new Promise((fin) => {
+    const fila = (i) => h('div', { class: 'pendiente' },
+      h('input', { name: `nombre${i}`, maxLength: 80, autocomplete: 'off', 'aria-label': `Pendiente ${i + 1}`,
+        placeholder: ['Ej.: Parcial de Cálculo', 'Ej.: Trabajo de Base de Datos', 'Otro pendiente', 'Otro pendiente', 'Otro pendiente'][i] }),
+      h('select', { name: `dia${i}`, 'aria-label': `Día del pendiente ${i + 1}` }, DIAS.map((d) => h('option', {}, d))));
+    const form = formulario([0, 1, 2, 3, 4].map(fila), (datos) => {
+      const tasks = [0, 1, 2, 3, 4].map((i) => ({ name: datos[`nombre${i}`].trim(), day: datos[`dia${i}`] })).filter((t) => t.name);
+      if (!tasks.length) throw new Error('Escribe al menos un pendiente.');
+      fin(tasks);
+    }, 'Crear mi semana');
+    form.querySelectorAll('input').forEach((c) => { c.required = false; });
+    mostrar(ventana('', h('h2', {}, 'Semana 8: Exámenes Parciales'),
+      h('p', {}, '¿Qué tienes de verdad esta semana? Escribe de 1 a 5 pendientes y el día de cada uno.'),
+      h('p', { class: 'tenue chico' }, ai.available
+        ? 'Vela creará varios casos para cada uno. Evita escribir datos personales.'
+        : 'Vela no está conectada: usarás casos base con tus pendientes.'),
+      form));
+  });
+}
+
 // ---------------------------------------------------------------- Tutorial
 const PASOS = [
   ['Moverte', 'Usa las flechas o WASD. En el celular, usa la cruceta de la izquierda.'],
   ['Interactuar', 'Acércate a una persona u objeto, mira hacia ahí y pulsa Espacio, Enter, E o el botón A.'],
-  ['Iniciar una historia', 'Quienes tienen un signo amarillo sobre la cabeza quieren contarte algo.'],
+  ['Vivir tus casos', 'Cada actividad tiene varios casos. Busca a la persona con el signo amarillo: la barra superior te dice dónde está.'],
   ['Elegir alternativas', 'Elige con las flechas o con un toque. No hay respuestas correctas: nadie te está calificando.'],
-  ['Consultar misiones', 'Pulsa «Misiones» arriba para ver las actividades para tu vida real. Tú decides si aceptarlas.'],
+  ['Tu plan real', 'Al terminar, Vela analiza tus patrones y te da una misión por actividad. Pulsa «Mi semana» para revisarlas.'],
+  ['Cuidar tus recursos', 'Cada decisión mueve tu energía y tu carga mental. Ninguna opción es la correcta. Una banca o una cama te ayudan a recuperarte.'],
   ['Revisar tu progreso', 'Pulsa Esc, M o el botón B para abrir el menú. Ahí están tu avance, tus logros y este tutorial.'],
 ];
 

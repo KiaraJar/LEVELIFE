@@ -11,16 +11,35 @@
   <canvas id="mundo" aria-label="Campus de LEVELIFE"></canvas>
 
   <header id="hud" hidden>
-    <span id="hud-nombre"></span>
-    <span id="hud-nivel"></span>
-    <span id="hud-xp"><i></i></span>
-    <span id="hud-zona"></span>
-    <button id="hud-misiones" type="button">Misiones <b id="hud-cuenta">0</b></button>
-    <button id="hud-mapa" type="button">Mapa</button>
-    <button id="hud-menu" type="button">Menú</button>
+    <div class="hud-jugador">
+      <canvas id="hud-cara" width="40" height="40"></canvas>
+      <div class="hud-identidad">
+        <strong id="hud-nombre"></strong>
+        <span id="hud-ciclo"></span>
+      </div>
+      <div class="hud-recursos">
+        <div class="recurso" title="Valor del juego: baja con las acciones agotadoras">
+          <span class="recurso-nombre"><i data-icono="bateria"></i>Energía Ejecutiva</span>
+          <span class="recurso-barra"><i id="hud-energia"></i></span>
+          <b id="hud-energia-valor"></b>
+        </div>
+        <div class="recurso" title="Valor del juego: sube con las entregas y la indecisión">
+          <span class="recurso-nombre"><i data-icono="cerebro"></i>Carga Mental</span>
+          <span class="recurso-barra"><i id="hud-tension"></i></span>
+          <b id="hud-tension-valor"></b>
+        </div>
+      </div>
+    </div>
+    <nav class="hud-navegacion">
+      <button id="hud-misiones" class="btn-hud" type="button"><i data-icono="agenda"></i>Agenda:<span id="hud-cuenta">0 Dilemas</span></button>
+      <button id="hud-mapa" class="btn-hud" type="button">Mapa</button>
+      <button id="hud-vela" class="btn-hud vela" type="button" aria-label="Hablar con Vela, la agente de IA"><i data-icono="llama"></i>Vela</button>
+      <button id="hud-menu" class="btn-hud" type="button">Menú</button>
+    </nav>
   </header>
+  <div id="objetivo" hidden><span id="hud-objetivo"></span><span id="hud-lugar"><i data-icono="pin"></i><span id="hud-zona"></span></span></div>
 
-  <div id="dialogo" hidden>
+  <div id="dialogo" class="marco" hidden>
     <div id="dialogo-retrato"><canvas width="40" height="40"></canvas></div>
     <div id="dialogo-cuerpo">
       <div id="dialogo-nombre"></div>

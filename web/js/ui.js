@@ -29,10 +29,10 @@ export function boton(texto, accion, clase = '') {
 
 const capa = () => document.getElementById('capa');
 
-export function mostrar(contenido, { oscuro = true } = {}) {
+export function mostrar(contenido, { oscuro = true, lateral = false } = {}) {
   const c = capa();
   c.replaceChildren(contenido);
-  c.className = oscuro ? 'oscuro' : '';
+  c.className = lateral ? 'lateral' : (oscuro ? 'oscuro' : '');
   c.hidden = false;
   contenido.querySelector?.('input, textarea, button')?.focus({ preventScroll: true });
 }

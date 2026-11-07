@@ -1,6 +1,6 @@
 // Ciclo principal: conecta cuenta, mundo, historias, análisis y misiones.
 import { ApiError, api } from './api.js';
-import { TILE } from './art.js';
+import { TILE, icono, retrato } from './art.js';
 import { sonido } from './audio.js';
 import { dialogo } from './dialogo.js';
 import { Mundo } from './engine.js';
@@ -8,12 +8,11 @@ import { MAPAS, PUNTO_INICIAL } from './maps.js';
 import { Menu } from './menu.js';
 import * as P from './pantallas.js';
 import { aviso, boton, capaAbierta, celebrar, fundido, h, mostrar, ocultar, ventana } from './ui.js';
+import { velaReport } from './vela_report.js';
 
 const $ = (id) => document.getElementById(id);
 const TECLAS = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const DIALOGO_VELA = (text) => ({ speaker: 'vela', text });
-const PAUSA_VELA = 1500;
-const ESPERA_MAXIMA = 100000;
 
 class Juego {
   constructor() {
@@ -26,8 +25,9 @@ class Juego {
     this.mundo.alEntrarSalida = (s) => this.usarSalida(s);
     this.mundo.alCambiarZona = (z) => this.cambiarZona(z);
     this.mundo.alMoverse = () => this.guardarPosicion();
-    this.mundo.marcaDe = (id) => this.estado?.stories.find((s) => s.id === id)?.open;
+    this.mundo.marcaDe = (n) => this.semana?.current?.npc === n.id;
     this.mundo.bloqueado = (px, py) => this.parqueCerrado(px, py);
+    document.querySelectorAll('[data-icono]').forEach((el) => el.append(icono(el.dataset.icono)));
     this.conectarControles();
     this.mundo.ciclo();
   }
@@ -71,7 +71,8 @@ class Juego {
     });
     document.querySelector('[data-boton=b]').addEventListener('pointerdown', (e) => { e.preventDefault(); if (!this.ocupado) this.menu.abrir(); });
     $('hud-menu').addEventListener('click', () => { if (!this.ocupado) this.menu.abrir(); });
-    $('hud-misiones').addEventListener('click', () => { if (!this.ocupado) this.menu.misiones(() => this.menu.cerrar()); });
+    $('hud-misiones').addEventListener('click', () => { if (!this.ocupado) this.menu.semana(); });
+    $('hud-vela').addEventListener('click', () => { if (!this.ocupado) this.menu.asistente(); });
     $('hud-mapa').addEventListener('click', () => { if (!this.ocupado) { this.pausar(); this.menu.mapa(); } });
   }
 
@@ -85,11 +86,24 @@ class Juego {
   actualizar(estado) {
     this.estado = estado;
     if (!estado.user) return;
-    $('hud-nombre').textContent = estado.user.nickname;
-    $('hud-nivel').textContent = `Nv ${estado.level.level}`;
-    $('hud-xp').firstElementChild.style.width = `${(estado.level.into / estado.level.needed) * 100}%`;
-    $('hud-cuenta').textContent = estado.missions_open;
+    $('hud-nombre').textContent = `${estado.hud.student} | ${estado.hud.semester}`;
+    $('hud-ciclo').textContent = estado.hud.cycle;
+    this.pintarRecursos(estado.resources);
+    this.pintarSemana();
     dialogo.avatar = estado.user.avatar;
+    if (estado.user.avatar) retrato($('hud-cara'), estado.user.avatar);
+  }
+
+  pintarRecursos(r) {
+    if (this.estado) this.estado.resources = r;
+    const barra = (id, valor, color) => {
+      $(id).style.width = `${valor}%`;
+      $(id).style.backgroundColor = color;
+      $(`${id}-valor`).textContent = `${valor}%`;
+    };
+    // Energía: de amarillo a verde. Carga mental: de cian a rojo.
+    barra('hud-energia', r.energy, r.energy > 60 ? '#3fbf6a' : (r.energy > 30 ? '#a8c93f' : '#f3b63f'));
+    barra('hud-tension', r.tension, r.tension > 70 ? '#d9573f' : (r.tension > 40 ? '#f3a93f' : '#4fc3d9'));
   }
 
   recompensa(r) {
@@ -99,7 +113,7 @@ class Juego {
 
   // --------------------------------------------------------------- Inicio
   async arrancar() {
-    this.mundo.cargar('campus', 29, 24);
+    this.mundo.cargar('campus', 29, 10);
     this.mundo.paneo = true;
     try {
       this.actualizar(await api.get('/state'));
@@ -149,12 +163,15 @@ class Juego {
     this.mundo.paneo = false;
     this.mundo.apariencia(this.estado.user.avatar);
     $('hud').hidden = false;
+    $('objetivo').hidden = false;
     if ($('tactil').dataset.disponible) $('tactil').hidden = false;
     if (!this.estado.user.intro_done) await this.introduccion();
     else {
       const p = this.estado.user.position;
       this.mundo.cargar(p.map ?? PUNTO_INICIAL.map, p.x ?? PUNTO_INICIAL.x, p.y ?? PUNTO_INICIAL.y);
     }
+    await this.cargarSemana();
+    ocultar();
     this.reanudar();
   }
 
@@ -166,11 +183,10 @@ class Juego {
     await new Promise((r) => setTimeout(r, 1500));
     this.pausar();
     await dialogo.decir([
-      { speaker: 'nar', text: 'Tu primer día en el campus. El aire huele a pasto y a café.' },
-      DIALOGO_VELA('¡Bienvenido a tu nueva aventura! Este campus está lleno de historias, desafíos y experiencias.'),
-      DIALOGO_VELA('Explora sus espacios, conoce a otros estudiantes y descubre cómo tus decisiones pueden convertirse en oportunidades para crecer.'),
+      { speaker: 'nar', text: 'Semana 8. El campus huele a café y a apuntes de último minuto.' },
+      DIALOGO_VELA('Es semana de parciales en la FISI, y todo parece caer al mismo tiempo.'),
       DIALOGO_VELA(this.estado.ai.available
-        ? 'Soy Vela, una agente de inteligencia artificial. Te acompaño a convertir tus decisiones en misiones para tu vida real.'
+        ? 'Soy Vela, una agente de inteligencia artificial. Convierto tus pendientes reales en una semana que puedes ensayar antes de vivirla.'
         : 'Soy Vela, una agente de inteligencia artificial, pero ahora no estoy conectada. Puedes jugar igual y recibirás misiones generales.'),
       DIALOGO_VELA('Vamos con lo básico.'),
     ]);
@@ -178,7 +194,6 @@ class Juego {
     const resultado = await P.tutorial();
     const r = await api.post('/flags', { intro: true, tutorial: resultado });
     this.actualizar(r.state);
-    if (r.xp) aviso(`+${r.xp} XP por completar el tutorial`);
   }
 
   // ---------------------------------------------------------------- Mundo
@@ -194,8 +209,7 @@ class Juego {
   avisarCierre(zona) {
     if (performance.now() - this.ultimoAviso < 3000) return;
     this.ultimoAviso = performance.now();
-    const z = this.estado.zones[zona];
-    aviso(`${z.name}: se abre al vivir ${z.unlock} ${z.unlock === 1 ? 'historia' : 'historias'}.`);
+    aviso(`${this.estado.zones[zona].name}: tu Semana 8 no pasa por aquí.`);
   }
 
   async usarSalida(salida) {
@@ -219,11 +233,11 @@ class Juego {
   cambiarZona(zona) {
     if (!this.estado || this.mundo.paneo) return;
     const nombre = zona ? this.estado.zones[zona].name : this.mundo.mapa.nombre;
-    $('hud-zona').textContent = nombre;
+    $('hud-zona').textContent = this.mundo.nombreMapa === 'campus' && zona !== 'parque' ? 'Campus FISI' : nombre;
     if (!zona || this.estado.user.visited.includes(zona)) return;
     api.post('/visit', { zone: zona }).then((r) => {
       this.actualizar(r.state);
-      if (r.xp) aviso(`Zona descubierta: ${nombre} (+${r.xp} XP)`);
+      if (r.xp) aviso(`Zona descubierta: ${nombre}`);
       this.recompensa(r);
     }).catch((err) => console.error(err));
   }
@@ -248,36 +262,98 @@ class Juego {
     if (o.tipo === 'npc') {
       const { npc } = o;
       this.mundo.mirarA(npc);
-      if (npc.historia) return this.iniciarHistoria(npc.historia);
+      if (this.semana?.current?.npc === npc.id) return this.jugarDia();
       return this.conversar(npc.decir.lineas.map((text) => ({ speaker: npc.id, text })), { [npc.id]: npc.nombre });
     }
     const m = this.mundo.mapa;
     const textos = {
       letrero: m.letreros?.[`${o.x},${o.y}`], banca: m.bancas, estante: m.estantes, barra: m.barra, pizarra: m.pizarra, cama: m.camas,
       fuente: 'El agua cae sin apuro. Alguien dejó una moneda y un deseo.',
+      tablon: m.tablon,
+      tablero: 'Avisos: tutorías, grupos de estudio y un recordatorio: «Calendario de parciales, semana 8».',
+      kiosco: m.kiosco, lectura: m.lectura, pc: m.pc,
     };
     const texto = textos[o.tile];
     if (texto) this.conversar([{ speaker: 'nar', text: texto }]);
+    if (['banca', 'cama'].includes(o.tile)) this.descansar();
     return undefined;
   }
 
-  // ------------------------------------------------------------ Historias
-  async iniciarHistoria(id) {
+  async descansar() {
+    const r = await api.post('/rest');
+    this.pintarRecursos(r.resources);
+    aviso(r.rested ? 'Descansaste: recuperas energía y bajas tu carga mental.' : 'Ya descansaste hace poco.');
+  }
+
+  // -------------------------------------------------------------- Semana 8
+  nombreDe(id) {
+    for (const mapa of Object.values(MAPAS)) {
+      const n = mapa.npcs.find((x) => x.id === id);
+      if (n) return n.nombre;
+    }
+    return id;
+  }
+
+  pintarSemana() {
+    const w = this.semana;
+    if (!w) return;
+    const quedan = w.total - w.day;
+    $('hud-cuenta').textContent = w.finished ? 'Reporte listo' : `${quedan} ${quedan === 1 ? 'Dilema' : 'Dilemas'}`;
+    const hoy = w.current;
+    $('hud-objetivo').textContent = hoy
+      ? `Busca a ${this.nombreDe(hoy.npc)}: ${this.estado.zones[hoy.zone].name}`
+      : 'Revisa tu Vela Report en Agenda';
+  }
+
+  async cargarSemana() {
+    const r = await api.get('/week');
+    this.semana = r.week;
+    this.areas = r.areas;
+    if (!this.semana) await this.crearSemana();
+    this.pintarSemana();
+  }
+
+  esperando(titulo, texto) {
+    mostrar(ventana('chica', h('h2', {}, titulo), h('p', {}, texto)));
+  }
+
+  async crearSemana() {
+    const area = await P.selectorArea(this.areas);
+    for (;;) {
+      const tasks = await P.formularioSemana(this.estado.ai);
+      this.esperando('Vela está creando tus casos', 'Está convirtiendo cada pendiente en situaciones con decisiones y consecuencias. Puede tardar un momento.');
+      try {
+        const r = await api.post('/week', { tasks, area });
+        ocultar();
+        if (r.support) { await this.ventanaApoyo(r.support); continue; }
+        this.semana = r.week;
+        this.pintarRecursos(r.resources);
+        this.actualizar(await api.get('/state'));
+        if (r.week.source === 'plantilla') aviso('Casos base: Vela no participó en esta semana.');
+        return;
+      } catch (err) { aviso(err.message); }
+    }
+  }
+
+  async jugarDia() {
+    const hoy = this.semana.current;
     this.ocupado = true;
     this.pausar();
     try {
-      const inicio = await api.post(`/stories/${id}/start`);
-      let { node } = inicio;
-      const { run_id: run, cast, title } = inicio;
-      sonido.efecto('abrir');
-      for (;;) {
-        await dialogo.decir(node.lines, cast);
-        if (!node.choices) break;
-        const choice = await dialogo.elegir(node.choices);
-        ({ node } = await api.post(`/runs/${run}/choose`, { choice }));
-      }
+      const nombres = { [hoy.npc]: this.nombreDe(hoy.npc) };
+      await dialogo.decir([{ speaker: hoy.npc, text: hoy.scene }], nombres);
+      const option = await dialogo.elegir(hoy.options);
+      const r = await api.post('/week/choose', { option });
+      this.semana = r.week;
+      this.pintarRecursos(r.resources);
+      this.pintarSemana();
+      // El comentario se pide de inmediato: así suele estar listo al terminar de leer.
+      const comentario = api.post('/week/comment').catch(() => ({ comment: null }));
+      await dialogo.decir([{ speaker: 'nar', text: r.result }, DIALOGO_VELA(`${r.verdict.label}. ${r.verdict.text}`)]);
+      const { comment } = await comentario;
+      if (comment) await dialogo.decir([DIALOGO_VELA(comment)]);
       dialogo.cerrar();
-      await this.cierreHistoria(run, node, title);
+      if (r.week.finished) await this.cerrarSemana();
     } catch (err) {
       dialogo.cerrar();
       aviso(err.message);
@@ -286,25 +362,13 @@ class Juego {
     this.reanudar();
   }
 
-  reflexion(node) {
-    return new Promise((fin) => {
-      const texto = h('textarea', { rows: 4, maxLength: 600, placeholder: 'Escribe lo que quieras, o déjalo en blanco.' });
-      mostrar(ventana('chica', h('h2', {}, node.end), h('p', {}, node.reflect), texto,
-        h('p', { class: 'ayuda' }, 'Es opcional y no se califica.'),
-        h('div', { class: 'fila fin' }, boton('Continuar', () => fin(texto.value), 'principal'))));
-    });
-  }
-
-  async cierreHistoria(run, node, title) {
-    const reflection = await this.reflexion(node);
+  async cerrarSemana() {
+    this.esperando('Vela está preparando tu reporte', 'Está calculando tus dimensiones y patrones, y preparando una misión para cada actividad.');
+    const { plan } = await api.post('/week/plan');
+    this.semana.plan = plan;
     ocultar();
-    const r = await api.post(`/runs/${run}/finish`, { reflection });
-    this.actualizar(r.state);
-    await this.ventanaRecompensas(title, r);
-    this.recompensa(r);
-    if (r.support) await this.ventanaApoyo(r.support);
-    if (r.agent_run) await this.resultadoVela(r.agent_run);
-    else if (r.missions.length) await this.propuestas(r.missions);
+    celebrar();
+    await this.mostrarPlan(plan);
   }
 
   ventanaApoyo(texto) {
@@ -313,66 +377,8 @@ class Juego {
     });
   }
 
-  // El análisis corre en el servidor. Se puede seguir jugando: lo que proponga queda en Misiones.
-  esperarVela(id) {
-    return new Promise((fin) => {
-      let activo = true;
-      mostrar(ventana('chica', h('h2', {}, 'Vela está analizando'), h('p', {}, 'Está revisando tus decisiones y reflexiones. Puede tardar un momento.'),
-        h('div', { class: 'fila fin' }, boton('Seguir jugando', () => { activo = false; ocultar(); aviso('Lo que proponga Vela aparecerá en Misiones.'); fin(null); }))));
-      const limite = performance.now() + ESPERA_MAXIMA;
-      const revisar = async () => {
-        if (!activo) return;
-        try {
-          const e = await api.get(`/agent/runs/${id}`);
-          if (e.status !== 'pendiente') { ocultar(); fin(e); return; }
-        } catch (err) { console.error(err); }
-        if (performance.now() > limite) { ocultar(); aviso('Vela sigue trabajando. Revisa Misiones más tarde.'); fin(null); return; }
-        setTimeout(revisar, PAUSA_VELA);
-      };
-      setTimeout(revisar, PAUSA_VELA);
-    });
-  }
-
-  async resultadoVela(id) {
-    const e = await this.esperarVela(id);
-    if (!e) return;
-    this.actualizar(e.state);
-    if (e.analysis) {
-      const { analysis: a } = e;
-      const lineas = [a.summary, ...a.observations.slice(0, 2).map((o) => o.text)];
-      if (a.strengths[0]) lineas.push(`Algo que aparece a tu favor: ${a.strengths[0]}.`);
-      if (a.opportunities[0]) lineas.push(`Si te interesa, podrías explorar: ${a.opportunities[0]}. Tú decides.`);
-      await dialogo.decir(lineas.map(DIALOGO_VELA));
-      dialogo.cerrar();
-    } else {
-      aviso('Vela no está disponible ahora. Tus decisiones quedaron guardadas.');
-    }
-    if (e.missions.length) await this.propuestas(e.missions);
-  }
-
-  ventanaRecompensas(title, r) {
-    return new Promise((fin) => {
-      celebrar();
-      mostrar(ventana('chica', h('h2', {}, 'Historia vivida'), h('p', {}, `«${title}»`),
-        ...r.rewards.map((x) => h('p', {}, `★ ${x.label}: +${x.xp} XP`)),
-        r.new_badges.map((b) => h('p', {}, `Insignia nueva: ${b.name}`)),
-        h('div', { class: 'fila fin' }, boton('Continuar', () => { ocultar(); fin(); }, 'principal'))));
-    });
-  }
-
-  propuestas(misiones) {
-    return new Promise((fin) => {
-      const pintar = async () => {
-        const { missions, ai } = await api.get('/missions');
-        const ids = new Set(misiones.map((m) => m.id));
-        const actuales = missions.filter((m) => ids.has(m.id) && m.status === 'propuesta');
-        if (!actuales.length) { ocultar(); fin(); return; }
-        mostrar(ventana('ancha', h('h2', {}, 'Nuevas misiones para tu vida real'), this.menu.motor(ai),
-          actuales.map((m) => this.menu.tarjetaMision(m, pintar)),
-          h('div', { class: 'fila fin' }, boton('Decidir después', () => { ocultar(); fin(); }))));
-      };
-      pintar();
-    });
+  mostrarPlan(plan) {
+    return velaReport(plan, this);
   }
 }
 

@@ -71,6 +71,28 @@ class Dialogo {
     }
   }
 
+  // Muestra cada efecto. El verde indica una ganancia y el naranja un costo, no qué opción es mejor.
+  opcion(op, i) {
+    const caja = document.createDocumentFragment();
+    const letra = document.createElement('span');
+    letra.className = 'opcion-letra';
+    letra.textContent = `Opción ${String.fromCharCode(65 + i)}: `;
+    const impacto = document.createElement('span');
+    impacto.className = 'opcion-impacto';
+    const efectos = [['energy', 'Energía', 1], ['tension', 'Carga mental', -1], ['performance', 'Rendimiento', 1], ['social', 'Red de apoyo', 1]]
+      .filter(([k]) => op.impact?.[k]);
+    efectos.forEach(([k, nombre, bueno], n) => {
+      const valor = op.impact[k];
+      const parte = document.createElement('span');
+      parte.className = valor * bueno > 0 ? 'impacto-bien' : 'impacto-costo';
+      parte.textContent = `${valor > 0 ? '+' : ''}${valor}% ${nombre}`;
+      if (n) impacto.append(' | ');
+      impacto.append(parte);
+    });
+    caja.append(letra, op.text, impacto);
+    return caja;
+  }
+
   elegir(opciones) {
     const caja = $('dialogo-opciones');
     $('dialogo-sigue').hidden = true;
@@ -89,7 +111,7 @@ class Dialogo {
       const botones = opciones.map((op, i) => {
         const b = document.createElement('button');
         b.type = 'button';
-        b.textContent = op.text;
+        b.append(this.opcion(op, i));
         b.addEventListener('click', () => elegir(op));
         b.addEventListener('pointerenter', () => marcar(i));
         return b;
