@@ -25,4 +25,9 @@ DB_PATH = os.environ.get("LEVELIFE_DB", str(ROOT / "data" / "levelife.db"))
 PORT = int(os.environ.get("LEVELIFE_PORT", "5173"))
 SECURE_COOKIES = os.environ.get("LEVELIFE_SECURE_COOKIES", "0") == "1"
 SESSION_DAYS = 14
-DOCS_VERSION = "2026-11-07"
+DOCS_VERSION = "2026-11-07-ia"
+AI_MODEL = os.environ.get("LEVELIFE_MODEL", "claude-opus-5-5")
+
+
+def ai_ready() -> bool:
+    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))

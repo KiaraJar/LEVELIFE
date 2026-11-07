@@ -10,7 +10,7 @@ TERMS = [
     ("Historias interactivas",
      "Las historias son ficción y no tienen respuestas correctas. Tus elecciones cambian la narración, pero no se califican ni afectan tus recompensas."),
     ("Uso de inteligencia artificial",
-     "El análisis puede realizarlo un modelo de IA o un motor simulado por reglas. El juego siempre indica cuál está activo. Hoy está activo el motor simulado."),
+     "El análisis, las misiones personalizadas y la conversación los realiza Vela, un agente de IA. Puede equivocarse: sus respuestas son orientativas y tú decides qué te sirve."),
     ("Alcances y limitaciones",
      "Las recomendaciones son orientativas. No constituyen diagnóstico, tratamiento ni asesoría médica o psicológica, y no reemplazan a una persona profesional. Ante una emergencia, contacta a los servicios de tu país."),
     ("Normas de comportamiento",
@@ -27,7 +27,7 @@ PRIVACY = [
     ("Uso para personalizar actividades",
      "Las decisiones y reflexiones autorizadas se usan para identificar patrones entre historias y proponerte misiones. No se usan para etiquetarte ni discriminarte."),
     ("Funcionamiento del análisis",
-     "Hoy el análisis lo hace un motor simulado por reglas dentro del servidor de LEVELIFE, y ningún dato sale hacia servicios externos. Si se conecta un modelo de IA externo, te lo informaremos y pediremos tu consentimiento antes de enviarle datos."),
+     "Si autorizas el análisis, tus decisiones, reflexiones, notas de misiones y mensajes a Vela se envían a Anthropic, proveedor del modelo de IA, para generar las respuestas. Tu nombre, usuario y correo no se incluyen, pero evita escribir datos personales en esos textos."),
     ("Almacenamiento y protección",
      "Los datos se guardan en la base de datos del servidor. Las contraseñas y los códigos de recuperación se almacenan solo como hash, y la sesión usa una cookie protegida."),
     ("Tus derechos",
@@ -37,7 +37,7 @@ PRIVACY = [
 ]
 
 AI_CONSENT = (
-    "Autorizo que se registren mis decisiones y reflexiones para identificar patrones y proponerme misiones. "
+    "Autorizo que se registren mis decisiones y reflexiones y que se envíen, junto con mis mensajes a Vela, a Anthropic para identificar patrones y proponerme misiones. "
     "Es opcional: sin esto puedes jugar igual y recibirás misiones generales."
 )
 

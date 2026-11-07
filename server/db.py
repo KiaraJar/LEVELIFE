@@ -66,6 +66,14 @@ CREATE TABLE IF NOT EXISTS analyses (
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  story TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pendiente',
+  body TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 CREATE TABLE IF NOT EXISTS missions (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -130,6 +138,8 @@ def init_app(app: Flask) -> None:
     conn = connect(str(path))
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    # Un reinicio interrumpe los análisis en curso.
+    conn.execute("UPDATE agent_runs SET status = 'no_disponible' WHERE status = 'pendiente'")
     conn.commit()
     conn.close()
 
