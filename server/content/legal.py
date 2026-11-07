@@ -2,7 +2,7 @@
 
 TERMS = [
     ("Objetivo y funcionamiento",
-     "LEVELIFE es un videojuego de bienestar universitario. Exploras un campus virtual, vives historias con decisiones y recibes misiones opcionales para tu vida cotidiana."),
+     "LEVELIFE es un videojuego de bienestar para estudiantes de primeros ciclos. Escribes tus pendientes de la semana de parciales, los simulas en un campus virtual y recibes un plan breve y orientativo para tu vida real."),
     ("Responsabilidades del usuario",
      "Te comprometes a dar datos veraces al registrarte, a proteger tu contraseña y tu código de recuperación, y a usar tu cuenta de forma personal."),
     ("Condiciones de uso",
@@ -21,13 +21,13 @@ TERMS = [
 
 PRIVACY = [
     ("Datos personales que recopilamos",
-     "Nombre, nombre de usuario, correo electrónico, contraseña protegida con hash, apariencia del personaje y progreso del juego."),
+     "Nombre, nombre de usuario, correo electrónico, contraseña protegida con hash, área de estudios, apariencia del personaje y progreso del juego, incluidos los valores de energía, tensión, rendimiento y red de apoyo, que cambian con tus elecciones. Son reglas del juego y no miden tu salud ni tu capacidad."),
     ("Decisiones que se registran",
      "Si autorizas el análisis, guardamos qué alternativas elegiste en cada historia. Sin esa autorización, solo guardamos que completaste la historia y su desenlace."),
     ("Uso para personalizar actividades",
      "Las decisiones y reflexiones autorizadas se usan para identificar patrones entre historias y proponerte misiones. No se usan para etiquetarte ni discriminarte."),
     ("Funcionamiento del análisis",
-     "Si autorizas el análisis, tus decisiones, reflexiones, notas de misiones y mensajes a Vela se envían a Google, proveedor del modelo de IA, para generar las respuestas. En su plan gratuito, Google puede usar ese contenido para mejorar sus productos, y puede ser revisado por personas. Tu nombre, usuario y correo no se incluyen, pero evita escribir datos personales o sensibles en esos textos."),
+     "Si autorizas el análisis, los pendientes que escribes, tus decisiones, reflexiones, notas de misiones y mensajes a Vela se envían a Google, proveedor del modelo de IA, para generar las respuestas. En su plan gratuito, Google puede usar ese contenido para mejorar sus productos, y puede ser revisado por personas. Tu nombre, usuario y correo no se incluyen, pero evita escribir datos personales o sensibles en esos textos."),
     ("Almacenamiento y protección",
      "Los datos se guardan en la base de datos del servidor. Las contraseñas y los códigos de recuperación se almacenan solo como hash, y la sesión usa una cookie protegida."),
     ("Tus derechos",

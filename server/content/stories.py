@@ -20,7 +20,7 @@ def END(title: str, reflect: str, *lines: dict) -> dict:
 
 
 def validate_stories() -> None:
-    from .world import SIGNALS, ZONES
+    from .world import IMPACTS, SIGNALS, ZONES
 
     for story in STORIES.values():
         nodes = story["nodes"]
@@ -38,7 +38,7 @@ def validate_stories() -> None:
                 continue
             assert 2 <= len(node["choices"]) <= 4, node_id
             for choice in node["choices"]:
-                assert set(choice["signals"]) <= set(SIGNALS), choice
+                assert set(choice["signals"]) <= set(SIGNALS) <= set(IMPACTS), choice
                 pending.append(choice["next"])
         assert seen == set(nodes), f"nodos inalcanzables en {story['id']}: {set(nodes) - seen}"
 

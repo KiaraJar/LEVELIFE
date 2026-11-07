@@ -31,13 +31,45 @@ SIGNALS = {
                    "focus": "incluir pausas en tu día"},
 }
 
+# Efecto de cada señal en los recursos del juego. Todas tienen ganancias y costos:
+# ninguna decisión es la mejor. Son reglas del juego, no una medida de la persona.
+IMPACTS = {
+    "priorizar": {"energy": -10, "tension": -10, "performance": 10, "social": 0},
+    "pedir_apoyo": {"energy": -5, "tension": -15, "performance": 5, "social": 10},
+    "poner_limites": {"energy": -5, "tension": -10, "performance": -5, "social": -5},
+    "aprender": {"energy": -10, "tension": -5, "performance": 10, "social": 0},
+    "descansar": {"energy": 15, "tension": -15, "performance": -10, "social": 0},
+    "equilibrar": {"energy": -10, "tension": -10, "performance": 5, "social": 5},
+    "sobrecarga": {"energy": -15, "tension": 15, "performance": 10, "social": -5},
+    "postergar": {"energy": 10, "tension": 15, "performance": -10, "social": 0},
+    "complacer": {"energy": -15, "tension": -5, "performance": -5, "social": 5},
+    "evitar": {"energy": 5, "tension": 10, "performance": -5, "social": -10},
+    "autocritica": {"energy": -15, "tension": 15, "performance": 5, "social": -5},
+    "sin_pausas": {"energy": -15, "tension": 15, "performance": 10, "social": -5},
+}
+MAX_IMPACT = 15  # una sola decisión no debe agotar los recursos
+MISSION_RECOVERY = {"energy": 15, "tension": -10, "performance": 0, "social": 0}
+REST_RECOVERY = {"energy": 12, "tension": -8, "performance": 0, "social": 0}
+REST_SECONDS = 90
+START_RESOURCES = {"energy": 80, "tension": 30, "performance": 50, "social": 50}
+HUD_INFO = {"student": "Estudiante", "semester": "Semestre 1", "cycle": "Semana 8: Exámenes Parciales"}
+
+
+def choice_impact(choice: dict) -> dict:
+    total = {"energy": 0, "tension": 0, "performance": 0, "social": 0}
+    for code in choice["signals"]:
+        for key, value in IMPACTS[code].items():
+            total[key] += value
+    return {key: max(-MAX_IMPACT, min(MAX_IMPACT, value)) for key, value in total.items()}
+
+
 ZONES = {
     "plaza": {"name": "Plaza central", "unlock": 0},
     "biblioteca": {"name": "Biblioteca", "unlock": 0},
     "cafeteria": {"name": "Cafetería", "unlock": 0},
-    "aulas": {"name": "Aulas", "unlock": 1},
+    "aulas": {"name": "Laboratorio de Cómputo", "unlock": 0},
     "parque": {"name": "Parque universitario", "unlock": 2},
-    "residencia": {"name": "Residencia universitaria", "unlock": 3},
+    "residencia": {"name": "Residencia universitaria", "unlock": 0},
 }
 
 # Cantidad de opciones por atributo. Deben coincidir con web/js/art.js.

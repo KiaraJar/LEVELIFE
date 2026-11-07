@@ -1,0 +1,19 @@
+{
+  "area": "sociales_derecho",
+  "label": "Derecho, Ciencias Sociales y Educación",
+  "conflictos": ["lectura intensiva con plazos ajustados", "preparar sustentaciones bajo presión"],
+  "casos": [
+    {"scene": "Para «{task}» tienes cientos de páginas y muy pocos días.", "options": [
+      {"text": "Selecciono lo esencial y hago un esquema.", "result": "Llegas a lo central, y sacrificas detalle.", "signals": ["priorizar"]},
+      {"text": "Intento leerlo todo, palabra por palabra.", "result": "Cubres más, y te quedas sin aire.", "signals": ["sobrecarga"]},
+      {"text": "Formo un grupo para repartir lecturas.", "result": "Avanzas más rápido, aunque dependes del resto.", "signals": ["pedir_apoyo"]}]},
+    {"scene": "Debes sustentar «{task}» y te bloqueas al ensayar.", "options": [
+      {"text": "Ensayo frente a alguien y pido comentarios.", "result": "Mejoras, aunque te da vergüenza.", "signals": ["aprender"]},
+      {"text": "Me digo que todo saldrá mal.", "result": "El ensayo se detiene antes de empezar.", "signals": ["autocritica"]},
+      {"text": "Lo dejo para la noche anterior.", "result": "Hoy respiras, y mañana ensayas con prisa.", "signals": ["postergar"]}]},
+    {"scene": "Un compañero te pide tus resúmenes de «{task}» y aún no terminas los tuyos.", "options": [
+      {"text": "Le digo que los comparto al terminar.", "result": "Pones un límite amable y sigues.", "signals": ["poner_limites"]},
+      {"text": "Le dejo todo y le explico también.", "result": "Queda agradecido, y pierdes tu tarde.", "signals": ["complacer"]},
+      {"text": "Intercambiamos partes del trabajo.", "result": "Los dos avanzan, aunque toca coordinarse.", "signals": ["equilibrar"]}]}
+  ]
+}

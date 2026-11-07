@@ -1,0 +1,19 @@
+{
+  "area": "salud",
+  "label": "Ciencias de la Salud",
+  "conflictos": ["guardias exigentes", "memorizar un gran volumen de anatomía o farmacología", "presión en simulaciones clínicas"],
+  "casos": [
+    {"scene": "Sales de una guardia exigente y aún debes avanzar con «{task}».", "options": [
+      {"text": "Duermo un bloque corto y luego estudio.", "result": "Recuperas algo, aunque avanzas menos hoy.", "signals": ["descansar"]},
+      {"text": "Estudio de frente, sin parar.", "result": "Sumas horas, y la atención se te va cayendo.", "signals": ["sin_pausas"]},
+      {"text": "Coordino con mi grupo para repasar juntos.", "result": "Compartes el peso, aunque dependes de sus horarios.", "signals": ["pedir_apoyo"]}]},
+    {"scene": "Tienes que memorizar un volumen enorme de contenido para «{task}».", "options": [
+      {"text": "Priorizo los temas de mayor peso.", "result": "Avanzas en lo central, y dejas algo fuera.", "signals": ["priorizar"]},
+      {"text": "Intento memorizar absolutamente todo.", "result": "Cubres más, pero lo retienes peor.", "signals": ["sobrecarga"]},
+      {"text": "Repaso con preguntas en lugar de releer.", "result": "Notas lo que te falta, aunque cuesta más.", "signals": ["aprender"]}]},
+    {"scene": "En la simulación clínica de «{task}» cometes un error frente a todos.", "options": [
+      {"text": "Pido retroalimentación concreta.", "result": "Sales con algo que mejorar, aunque incomoda.", "signals": ["aprender"]},
+      {"text": "Me repito que no sirvo para esto.", "result": "La frase pesa más que el error.", "signals": ["autocritica"]},
+      {"text": "Me alejo del grupo y no hablo del tema.", "result": "Evitas la incomodidad, y te quedas con la duda.", "signals": ["evitar"]}]}
+  ]
+}

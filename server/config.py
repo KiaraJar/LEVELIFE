@@ -25,7 +25,9 @@ DB_PATH = os.environ.get("LEVELIFE_DB", str(ROOT / "data" / "levelife.db"))
 PORT = int(os.environ.get("LEVELIFE_PORT", "5173"))
 SECURE_COOKIES = os.environ.get("LEVELIFE_SECURE_COOKIES", "0") == "1"
 SESSION_DAYS = 14
-DOCS_VERSION = "2026-11-07-gemini"
+DOCS_VERSION = "2026-11-07-areas"
+# Dirección oficial de Bienestar Universitario. Si está vacía, el reporte solo lo menciona.
+WELLBEING_URL = os.environ.get("LEVELIFE_BIENESTAR_URL", "")
 # En orden de preferencia: si uno está saturado o sin cupo, se usa el siguiente.
 AI_MODELS = [m.strip() for m in os.environ.get(
     "LEVELIFE_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",") if m.strip()]

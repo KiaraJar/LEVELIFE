@@ -1,0 +1,19 @@
+{
+  "area": "ingenieria",
+  "label": "Ingeniería de Sistemas e Informática",
+  "conflictos": ["errores críticos de código antes de una entrega", "fallos en el laboratorio de sistemas", "integrantes que no responden en proyectos técnicos"],
+  "casos": [
+    {"scene": "Falta poco para entregar «{task}» y aparece un error crítico que no entiendes.", "options": [
+      {"text": "Aíslo el error y reviso paso a paso.", "result": "Lo acotas, aunque se va la tarde.", "signals": ["priorizar"]},
+      {"text": "Sigo probando cambios toda la noche.", "result": "Quizá funcione, pero amaneces sin energía.", "signals": ["sin_pausas"]},
+      {"text": "Pido a alguien revisar el código conmigo.", "result": "Otro par de ojos ayuda, aunque debes explicar todo.", "signals": ["pedir_apoyo"]}]},
+    {"scene": "En el laboratorio de sistemas fallan las máquinas y «{task}» se atrasa.", "options": [
+      {"text": "Aviso al docente y propongo otra forma.", "result": "Queda claro lo que pasó, aunque te expones un poco.", "signals": ["poner_limites"]},
+      {"text": "Rehago todo en mi casa por mi cuenta.", "result": "Cumples, pero cargas con todo.", "signals": ["sobrecarga"]},
+      {"text": "Espero a que lo arreglen.", "result": "Hoy te libras, y mañana hay menos margen.", "signals": ["postergar"]}]},
+    {"scene": "Tu equipo de «{task}» no responde hace días y el repositorio sigue vacío.", "options": [
+      {"text": "Reparto tareas por escrito con fechas.", "result": "Se ordena el grupo, aunque te toca coordinar.", "signals": ["equilibrar"]},
+      {"text": "Hago yo la parte de todos.", "result": "El proyecto avanza y el equipo no se entera.", "signals": ["complacer"]},
+      {"text": "No digo nada para evitar el problema.", "result": "No hay discusión hoy, y sigue sin haber avance.", "signals": ["evitar"]}]}
+  ]
+}

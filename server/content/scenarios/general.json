@@ -1,0 +1,23 @@
+{
+  "area": "general",
+  "label": "Transversal",
+  "conflictos": ["semana de exámenes parciales", "parálisis por análisis", "noches sin dormir bien", "saturación de entregas"],
+  "casos": [
+    {"scene": "«{task}» coincide con todo lo demás y no sabes por dónde empezar.", "options": [
+      {"text": "Hago una lista y decido qué va primero.", "result": "Todo se ve más claro, aunque perdiste un rato ordenando.", "signals": ["priorizar"]},
+      {"text": "Avanzo en todo a la vez.", "result": "Te mueves mucho, pero nada queda listo.", "signals": ["sobrecarga"]},
+      {"text": "Lo dejo para mañana.", "result": "Hoy descansas. Mañana habrá menos tiempo.", "signals": ["postergar"]}]},
+    {"scene": "Llevas una hora comparando métodos para «{task}» y todavía no empiezas.", "options": [
+      {"text": "Elijo uno cualquiera y empiezo diez minutos.", "result": "Arrancas, aunque quizá no sea el mejor método.", "signals": ["aprender"]},
+      {"text": "Pregunto a alguien cómo lo hizo.", "result": "Decides más rápido con otra mirada.", "signals": ["pedir_apoyo"]},
+      {"text": "Sigo buscando la forma perfecta.", "result": "Tienes más opciones y menos tiempo.", "signals": ["postergar"]}]},
+    {"scene": "Es tarde, no logras dormir y sigues pensando en «{task}».", "options": [
+      {"text": "Me levanto a avanzar un poco más.", "result": "Adelantas algo, y mañana costará arrancar.", "signals": ["sin_pausas"]},
+      {"text": "Anoto lo pendiente y apago la pantalla.", "result": "Descansas mejor, aunque hoy no avanzas.", "signals": ["descansar"]},
+      {"text": "Le escribo a alguien cómo me siento.", "result": "Te sientes acompañado el resto de la noche.", "signals": ["pedir_apoyo"]}]},
+    {"scene": "Te piden ayuda justo cuando querías avanzar con «{task}».", "options": [
+      {"text": "Explico que hoy necesito priorizar lo mío.", "result": "Te cuesta decirlo, pero recuperas tu tarde.", "signals": ["poner_limites"]},
+      {"text": "Digo que sí a todo.", "result": "Evitas el roce. Lo tuyo queda para la noche.", "signals": ["complacer"]},
+      {"text": "Ofrezco veinte minutos y sigo.", "result": "Ayudas un poco y mantienes tu plan.", "signals": ["equilibrar"]}]}
+  ]
+}

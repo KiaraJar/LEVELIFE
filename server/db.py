@@ -66,6 +66,28 @@ CREATE TABLE IF NOT EXISTS analyses (
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+CREATE TABLE IF NOT EXISTS resources (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  energy INTEGER NOT NULL,
+  tension INTEGER NOT NULL,
+  performance INTEGER NOT NULL,
+  social INTEGER NOT NULL DEFAULT 50
+);
+CREATE TABLE IF NOT EXISTS weeks (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tasks TEXT NOT NULL,
+  days TEXT NOT NULL,
+  source TEXT NOT NULL,
+  area TEXT NOT NULL DEFAULT 'ingenieria',
+  day INTEGER NOT NULL DEFAULT 0,
+  plan TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS rests (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS agent_runs (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -138,6 +160,10 @@ def init_app(app: Flask) -> None:
     conn = connect(str(path))
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    # Bases creadas antes de añadir estas columnas: se actualizan sin perder datos.
+    for tabla, columna, tipo in (("resources", "social", "INTEGER NOT NULL DEFAULT 50"), ("weeks", "area", "TEXT NOT NULL DEFAULT 'ingenieria'")):
+        if columna not in {f["name"] for f in conn.execute(f"PRAGMA table_info({tabla})")}:
+            conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}")
     # Un reinicio interrumpe los análisis en curso.
     conn.execute("UPDATE agent_runs SET status = 'no_disponible' WHERE status = 'pendiente'")
     conn.commit()
