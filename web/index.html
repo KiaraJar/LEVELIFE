@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>LEVELIFE</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/web/css/game.css">
+</head>
+<body>
+  <canvas id="mundo" aria-label="Campus de LEVELIFE"></canvas>
+
+  <header id="hud" hidden>
+    <span id="hud-nombre"></span>
+    <span id="hud-nivel"></span>
+    <span id="hud-xp"><i></i></span>
+    <span id="hud-zona"></span>
+    <button id="hud-misiones" type="button">Misiones <b id="hud-cuenta">0</b></button>
+    <button id="hud-mapa" type="button">Mapa</button>
+    <button id="hud-menu" type="button">Menú</button>
+  </header>
+
+  <div id="dialogo" hidden>
+    <div id="dialogo-retrato"><canvas width="40" height="40"></canvas></div>
+    <div id="dialogo-cuerpo">
+      <div id="dialogo-nombre"></div>
+      <p id="dialogo-texto" aria-live="polite"></p>
+      <div id="dialogo-opciones"></div>
+      <span id="dialogo-sigue">▼</span>
+    </div>
+  </div>
+
+  <div id="tactil" hidden>
+    <div class="cruz">
+      <button data-dir="up" aria-label="Arriba">▲</button>
+      <button data-dir="left" aria-label="Izquierda">◀</button>
+      <button data-dir="right" aria-label="Derecha">▶</button>
+      <button data-dir="down" aria-label="Abajo">▼</button>
+    </div>
+    <div class="acciones">
+      <button data-boton="b" aria-label="Menú">B</button>
+      <button data-boton="a" aria-label="Interactuar">A</button>
+    </div>
+  </div>
+
+  <main id="capa" hidden></main>
+  <div id="aviso" role="status" hidden></div>
+  <div id="fundido"></div>
+  <script type="module" src="/web/js/main.js"></script>
+</body>
+</html>
