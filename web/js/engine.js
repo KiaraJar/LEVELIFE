@@ -1,5 +1,5 @@
 // Motor del mundo: render por tiles, movimiento, colisiones, cámara y NPC.
-import { ANCHO, ANIMADOS, NPCS, SOLIDOS, TILE, dibujarPersonaje, hojaPersonaje, lienzo, pintarFuente, pintarTile } from './art.js';
+import { ANCHO, ANIMADOS, ARBOL, NPCS, SOLIDOS, TILE, arbolGrande, dibujarPersonaje, etiqueta, hojaPersonaje, lienzo, pintarBordes, pintarFuente, pintarTile, placa, reloj } from './art.js';
 import { MAPAS, PUNTO_INICIAL } from './maps.js';
 
 const VEL = 1.25; // píxeles lógicos por fotograma
@@ -46,11 +46,18 @@ export class Mundo {
     this.capa = lienzo(this.ancho * TILE, this.alto * TILE);
     const g = this.capa.getContext('2d');
     this.animados = [];
+    this.arboles = [];
     for (let j = 0; j < this.alto; j++) for (let i = 0; i < this.ancho; i++) {
       const t = m.tiles[j][i];
-      pintarTile(g, t, i * TILE, j * TILE, i * 31 + j * 17);
+      if (t === 'arbol') {
+        pintarTile(g, 'pasto', i * TILE, j * TILE, i * 31 + j * 17);
+        this.arboles.push({ x: i * TILE - 8, y: j * TILE, base: j * TILE + 8, img: arbolGrande(i * 7 + j * 3) });
+      } else pintarTile(g, t, i * TILE, j * TILE, i * 31 + j * 17);
       if (ANIMADOS.has(t)) this.animados.push([t, i, j]);
     }
+    pintarBordes(g, m.tiles);
+    for (const p of m.placas ?? []) placa(g, p.texto, p.x * TILE, p.y * TILE + 2);
+    if (m.reloj) reloj(g, m.reloj.x * TILE, m.reloj.y * TILE + 6);
     Object.assign(this.jugador, { x: tx * TILE, y: ty * TILE, dir, anda: false });
     this.npcs = m.npcs.map((n) => ({ ...n, px: n.x * TILE, py: n.y * TILE, hoja: hojaPersonaje(NPCS[n.id]), paso: 0, espera: 60 + Math.random() * 120, meta: null, ox: n.x * TILE, oy: n.y * TILE }));
     this.centrar();
@@ -151,7 +158,7 @@ export class Mundo {
     const mw = this.ancho * TILE, mh = this.alto * TILE;
     const cx = yo.x + ANCHO / 2 - vw / 2, cy = yo.y + 12 - vh / 2;
     this.camara.x = mw <= vw ? (mw - vw) / 2 : Math.max(0, Math.min(mw - vw, cx));
-    this.camara.y = mh <= vh ? (mh - vh) / 2 : Math.max(0, Math.min(mh - vh, cy));
+    this.camara.y = mh <= vh ? (mh - vh) / 2 - 14 : Math.max(0, Math.min(mh - vh, cy));
   }
 
   dibujar() {
@@ -170,8 +177,13 @@ export class Mundo {
     const entes = [
       ...this.npcs.map((n) => ({ y: n.py, hoja: n.hoja, dir: n.dir, paso: n.anda ? 1 + (Math.floor(this.tiempo / 12) % 2) : 0, x: n.px })),
       { y: yo.y, hoja: yo.hoja, dir: yo.dir, paso: yo.anda ? 1 + (Math.floor(this.tiempo / 8) % 2) : 0, x: yo.x },
+      ...this.arboles.filter((a) => a.x - cx > -ARBOL.ancho && a.x - cx < this.canvas.width && a.y - cy > -TILE && a.y - cy - ARBOL.alto < this.canvas.height)
+        .map((a) => ({ y: a.base, arbol: a })),
     ].sort((a, b) => a.y - b.y);
-    for (const e of entes) if (e.hoja) dibujarPersonaje(g, e.hoja, e.dir, e.paso, Math.round(e.x) - cx, Math.round(e.y) - cy - 8);
+    for (const e of entes) {
+      if (e.arbol) g.drawImage(e.arbol.img, e.arbol.x - cx, e.arbol.y + 16 - ARBOL.alto - cy);
+      else if (e.hoja) dibujarPersonaje(g, e.hoja, e.dir, e.paso, Math.round(e.x) - cx, Math.round(e.y) - cy - 8);
+    }
     this.dibujarMarcas(cx, cy);
   }
 
@@ -179,11 +191,20 @@ export class Mundo {
   dibujarMarcas(cx, cy) {
     const { g } = this;
     const sube = Math.floor(this.tiempo / 20) % 2;
+    const yo = this.jugador;
     for (const n of this.npcs) {
-      if (!n.historia || !this.marcaDe?.(n.historia)) continue;
-      const x = Math.round(n.px) - cx + 7, y = Math.round(n.py) - cy - 18 - sube;
-      g.fillStyle = '#22213a'; g.fillRect(x - 1, y - 1, 4, 9);
-      g.fillStyle = '#f3b63f'; g.fillRect(x, y, 2, 4); g.fillRect(x, y + 5, 2, 2);
+      const historia = this.marcaDe?.(n);
+      const cerca = Math.abs(n.px - yo.x) + Math.abs(n.py - yo.y) < TILE * 4;
+      const baseX = Math.round(n.px) - cx + 8, baseY = Math.round(n.py) - cy - 15;
+      if (historia || cerca) {
+        const tag = etiqueta(n.nombre.split(',')[0].replace('Prof. ', ''));
+        g.drawImage(tag, Math.round(baseX - tag.width / 2), baseY - 12);
+      }
+      if (!historia) continue;
+      const x = baseX - 1, y = baseY - 22 - sube;
+      g.fillStyle = '#2a2238'; g.fillRect(x - 2, y - 1, 6, 11);
+      g.fillStyle = '#f3b63f'; g.fillRect(x - 1, y, 4, 9);
+      g.fillStyle = '#2a2238'; g.fillRect(x, y + 1, 2, 4); g.fillRect(x, y + 6, 2, 2);
     }
   }
 
@@ -192,8 +213,10 @@ export class Mundo {
     if (!this.pausa) { this.mover(); this.moverNpcs(); this.centrar(); }
     if (this.paneo) {
       this.moverNpcs();
-      this.camara.x = 300 + Math.sin(this.tiempo / 900) * 240;
-      this.camara.y = 230 + Math.cos(this.tiempo / 1300) * 90;
+      // La portada recorre la fachada de la Biblioteca Central.
+      const centro = 30 * TILE - this.canvas.width / 2;
+      this.camara.x = centro + Math.sin(this.tiempo / 900) * 140;
+      this.camara.y = Math.max(0, 24 + Math.cos(this.tiempo / 1300) * 20);
     }
     this.dibujar();
     requestAnimationFrame(() => this.ciclo());

@@ -41,19 +41,35 @@ function oscurecer(hex, f = 0.75) {
   return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
 }
 
+function tejas(g, x, y, base, oscuro, claro) {
+  r(g, base, x, y, TILE, TILE);
+  for (let f = 0; f < 4; f++) {
+    r(g, oscuro, x, y + f * 4 + 3, TILE, 1);
+    const d = f % 2 ? 2 : 6;
+    r(g, oscuro, x + d, y + f * 4, 1, 3); r(g, oscuro, x + d + 8, y + f * 4, 1, 3);
+    r(g, claro, x + d + 2, y + f * 4, 3, 1);
+  }
+}
+
 // ---------------------------------------------------------------- Tiles
 const pintores = {
   pasto(g, x, y, s) {
-    const a = azar(s); r(g, '#67b866', x, y, TILE, TILE);
-    for (let i = 0; i < 7; i++) r(g, a() > 0.5 ? '#5aa95b' : '#79c672', x + Math.floor(a() * 15), y + Math.floor(a() * 15), 1, 2);
+    // Ajedrezado suave, como un césped de campus bien cuidado.
+    const par = (x / TILE + y / TILE) % 2 === 0;
+    const a = azar(s);
+    r(g, par ? '#6dbb66' : '#64b25f', x, y, TILE, TILE);
+    for (let i = 0; i < 3; i++) {
+      const px = x + 1 + Math.floor(a() * 13), py = y + 1 + Math.floor(a() * 13);
+      r(g, par ? '#5aa758' : '#79c672', px, py, 1, 2); r(g, par ? '#5aa758' : '#79c672', px + 2, py + 1, 1, 1);
+    }
   },
   flor(g, x, y, s) {
     pintores.pasto(g, x, y, s); const a = azar(s + 3);
     for (let i = 0; i < 3; i++) { const px = x + 2 + Math.floor(a() * 11), py = y + 2 + Math.floor(a() * 11); r(g, ['#fff4c7', '#ef8fb1', '#f7d04a'][i], px, py, 2, 2); r(g, '#d9573f', px, py, 1, 1); }
   },
   camino(g, x, y, s) {
-    const a = azar(s); r(g, '#e2cc9a', x, y, TILE, TILE);
-    for (let i = 0; i < 6; i++) r(g, a() > 0.5 ? '#d3bb85' : '#ecd9ae', x + Math.floor(a() * 14), y + Math.floor(a() * 14), 2, 1);
+    const a = azar(s); r(g, '#d8b98a', x, y, TILE, TILE);
+    for (let i = 0; i < 7; i++) r(g, a() > 0.5 ? '#c7a574' : '#e6cfa3', x + Math.floor(a() * 14), y + Math.floor(a() * 14), 2, 1);
   },
   plaza(g, x, y, s) {
     r(g, '#cfc7bd', x, y, TILE, TILE); r(g, '#b9b0a6', x + 15, y, 1, TILE); r(g, '#b9b0a6', x, y + 15, TILE, 1);
@@ -77,16 +93,80 @@ const pintores = {
     for (let f = 0; f < 4; f++) { r(g, '#8f4230', x, y + f * 4 + 3, TILE, 1); r(g, '#8f4230', x + (f % 2 ? 3 : 11), y + f * 4, 1, 3); }
   },
   muroAzul(g, x, y) { r(g, '#7fa8c9', x, y, TILE, TILE); r(g, '#658cae', x, y + 12, TILE, 4); r(g, '#658cae', x + 7, y, 1, 12); },
-  techoRojo(g, x, y) { r(g, '#c0503c', x, y, TILE, TILE); for (let i = 0; i < 4; i++) r(g, '#9e3d2d', x, y + i * 4 + 3, TILE, 1); r(g, '#d76a54', x + 2, y + 1, 5, 1); },
-  techoAzul(g, x, y) { r(g, '#46628f', x, y, TILE, TILE); for (let i = 0; i < 4; i++) r(g, '#374e73', x, y + i * 4 + 3, TILE, 1); r(g, '#5c7fb4', x + 9, y + 5, 4, 1); },
-  techoVerde(g, x, y) { r(g, '#3f8a6b', x, y, TILE, TILE); for (let i = 0; i < 4; i++) r(g, '#2f6c53', x, y + i * 4 + 3, TILE, 1); r(g, '#56aa88', x + 5, y + 9, 4, 1); },
-  techoOcre(g, x, y) { r(g, '#c9963f', x, y, TILE, TILE); for (let i = 0; i < 4; i++) r(g, '#a67a2e', x, y + i * 4 + 3, TILE, 1); r(g, '#e0b45e', x + 3, y + 5, 5, 1); },
+  techoRojo(g, x, y) { tejas(g, x, y, '#a84a39', '#8a3829', '#c2604d'); },
+  techoAzul(g, x, y) { tejas(g, x, y, '#3f587f', '#314668', '#567299'); },
+  techoVerde(g, x, y) { tejas(g, x, y, '#3a7a60', '#2c604b', '#4f9478'); },
+  techoOcre(g, x, y) { tejas(g, x, y, '#b0853a', '#8f6a2c', '#c99f52'); },
   ventana(g, x, y) { pintores.muroClaro(g, x, y); r(g, '#5d4a3a', x + 2, y + 3, 12, 10); r(g, '#a9dcec', x + 3, y + 4, 10, 8); r(g, '#5d4a3a', x + 7, y + 4, 2, 8); r(g, '#dff4fa', x + 4, y + 5, 2, 2); },
   puerta(g, x, y) { r(g, '#e9d9b8', x, y, TILE, TILE); r(g, '#5d3a26', x + 2, y + 1, 12, 15); r(g, '#7b5236', x + 3, y + 2, 10, 14); r(g, '#f3b63f', x + 11, y + 8, 2, 2); },
   cerrada(g, x, y) { pintores.puerta(g, x, y); r(g, '#3b3560', x + 2, y + 6, 12, 2); r(g, '#3b3560', x + 2, y + 10, 12, 2); r(g, '#f3b63f', x + 6, y + 7, 4, 4); },
   banca(g, x, y, s) { pintores.pasto(g, x, y, s); r(g, '#7b5236', x + 1, y + 6, 14, 3); r(g, '#94683f', x + 1, y + 10, 14, 3); r(g, '#4d3423', x + 2, y + 13, 2, 3); r(g, '#4d3423', x + 12, y + 13, 2, 3); },
   letrero(g, x, y, s) { pintores.pasto(g, x, y, s); r(g, '#5d3a26', x + 7, y + 8, 2, 8); r(g, '#94683f', x + 2, y + 2, 12, 8); r(g, '#7b5236', x + 2, y + 9, 12, 1); r(g, '#3b3560', x + 4, y + 4, 8, 1); r(g, '#3b3560', x + 4, y + 6, 6, 1); },
   fuente(g, x, y, s) { pintores.plaza(g, x, y, s); },
+  columna(g, x, y) {
+    pintores.muroClaro(g, x, y);
+    r(g, '#f4ecd8', x + 4, y, 8, TILE); r(g, '#c9b78f', x + 10, y, 2, TILE); r(g, '#2a2238', x + 3, y, 1, TILE); r(g, '#2a2238', x + 12, y, 1, TILE);
+    r(g, '#fffaf0', x + 2, y, 12, 2); r(g, '#fffaf0', x + 2, y + 14, 12, 2); r(g, '#b9a67e', x + 2, y + 15, 12, 1);
+  },
+  escalon(g, x, y) {
+    for (let i = 0; i < 4; i++) { r(g, i % 2 ? '#c5bcb1' : '#e2dbd0', x, y + i * 4, TILE, 3); r(g, '#8f8a96', x, y + i * 4 + 3, TILE, 1); }
+  },
+  pendon(g, x, y) {
+    pintores.muroClaro(g, x, y);
+    r(g, '#2a2238', x + 3, y + 1, 10, 1); r(g, '#7a1f2e', x + 4, y + 2, 8, 11); r(g, '#a33a4a', x + 4, y + 2, 2, 11);
+    r(g, '#f3b63f', x + 6, y + 5, 4, 4); r(g, '#7a1f2e', x + 7, y + 6, 2, 2); r(g, '#7a1f2e', x + 4, y + 12, 2, 2); r(g, '#7a1f2e', x + 10, y + 12, 2, 2);
+  },
+  bicis(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#8f97a6', x, y + 8, TILE, 1);
+    const color = ['#d9573f', '#3f8fc9', '#f3b63f'][s % 3];
+    r(g, '#2a2238', x + 1, y + 10, 5, 5); r(g, '#2a2238', x + 10, y + 10, 5, 5); r(g, '#cfd4dd', x + 2, y + 11, 3, 3); r(g, '#cfd4dd', x + 11, y + 11, 3, 3);
+    r(g, color, x + 4, y + 9, 8, 2); r(g, color, x + 7, y + 7, 2, 5); r(g, '#2a2238', x + 5, y + 6, 5, 1);
+  },
+  kiosco(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#2a2238', x, y + 1, TILE, 15); r(g, '#3f8fc9', x + 1, y + 2, 14, 4);
+    for (let i = 0; i < 4; i++) r(g, '#f5f1e6', x + 1 + i * 4, y + 2, 2, 4);
+    r(g, '#e9d9b8', x + 1, y + 6, 14, 9); r(g, '#5d4a3a', x + 2, y + 7, 12, 4); r(g, '#f5f1e6', x + 3, y + 8, 4, 3); r(g, '#f5f1e6', x + 8, y + 8, 4, 3); r(g, '#94683f', x + 1, y + 11, 14, 2);
+  },
+  tablero(g, x, y) {
+    pintores.pared(g, x, y);
+    r(g, '#5d3a26', x + 1, y + 2, 14, 11); r(g, '#b58650', x + 2, y + 3, 12, 9);
+    r(g, '#f5f1e6', x + 3, y + 4, 4, 5); r(g, '#ffe39c', x + 8, y + 4, 5, 3); r(g, '#bfe4d0', x + 8, y + 8, 4, 3);
+  },
+  lectura(g, x, y, s) {
+    pintores.piso(g, x, y, s);
+    r(g, '#5d3a26', x, y + 3, TILE, 10); r(g, '#94683f', x, y + 3, TILE, 8); r(g, '#b58650', x, y + 4, TILE, 2);
+    r(g, '#f5f1e6', x + 2, y + 7, 5, 3); r(g, '#3f9b5f', x + 10, y + 2, 4, 3); r(g, '#ffe39c', x + 11, y + 5, 2, 1); r(g, '#2a2238', x + 11, y + 6, 2, 4);
+  },
+  pc(g, x, y, s) {
+    pintores.piso(g, x, y, s);
+    r(g, '#5d6474', x, y + 9, TILE, 6); r(g, '#8f97a6', x, y + 9, TILE, 2);
+    r(g, '#2a2238', x + 2, y + 1, 12, 9); r(g, s % 2 ? '#4fc3d9' : '#3fbf6a', x + 3, y + 2, 10, 6); r(g, '#dff4fa', x + 4, y + 3, 5, 1); r(g, '#dff4fa', x + 4, y + 5, 7, 1);
+    r(g, '#2a2238', x + 7, y + 10, 2, 2); r(g, '#cfd4dd', x + 3, y + 12, 10, 2);
+  },
+  cerca(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#5d3a26', x + 1, y + 4, 3, 11); r(g, '#5d3a26', x + 12, y + 4, 3, 11);
+    r(g, '#94683f', x + 2, y + 4, 2, 10); r(g, '#94683f', x + 13, y + 4, 2, 10);
+    r(g, '#7b5236', x, y + 6, TILE, 3); r(g, '#b58650', x, y + 6, TILE, 1); r(g, '#7b5236', x, y + 11, TILE, 2); r(g, '#b58650', x, y + 11, TILE, 1);
+  },
+  roca(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#4f5564', x + 2, y + 6, 12, 9); r(g, '#4f5564', x + 4, y + 4, 8, 2);
+    r(g, '#8f97a6', x + 3, y + 6, 10, 7); r(g, '#b4bbc7', x + 5, y + 5, 5, 3); r(g, '#6f7686', x + 3, y + 12, 10, 2);
+  },
+  tocon(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#4d3423', x + 2, y + 5, 12, 10); r(g, '#7b5236', x + 3, y + 8, 10, 6); r(g, '#94683f', x + 5, y + 8, 2, 6);
+    r(g, '#d8b98a', x + 3, y + 5, 10, 3); r(g, '#b58650', x + 6, y + 6, 4, 1);
+  },
+  tablon(g, x, y, s) {
+    pintores.pasto(g, x, y, s);
+    r(g, '#4d3423', x + 2, y + 9, 2, 7); r(g, '#4d3423', x + 12, y + 9, 2, 7);
+    r(g, '#4d3423', x, y + 1, TILE, 11); r(g, '#b58650', x + 1, y + 2, 14, 9);
+    r(g, '#f5f1e6', x + 2, y + 3, 5, 6); r(g, '#ffe39c', x + 8, y + 3, 6, 3); r(g, '#bfe4d0', x + 8, y + 7, 5, 3); r(g, '#d9573f', x + 4, y + 3, 1, 1);
+  },
   farol(g, x, y, s) { pintores.pasto(g, x, y, s); r(g, '#2f3350', x + 7, y + 4, 2, 11); r(g, '#2f3350', x + 5, y + 14, 6, 2); r(g, '#2f3350', x + 5, y + 1, 6, 1); r(g, '#ffe39c', x + 5, y + 2, 6, 3); },
   arbusto(g, x, y, s) { pintores.pasto(g, x, y, s); r(g, '#2f7d4b', x + 2, y + 5, 12, 10); r(g, '#3f9b5f', x + 3, y + 5, 10, 6); r(g, '#ef8fb1', x + 5, y + 7, 2, 2); r(g, '#f7d04a', x + 10, y + 9, 2, 2); },
   rotulo(g, x, y) { pintores.muroClaro(g, x, y); r(g, '#3b3560', x, y + 3, TILE, 9); r(g, '#f3b63f', x + 2, y + 6, 12, 1); r(g, '#f3b63f', x + 4, y + 8, 8, 1); },
@@ -108,7 +188,7 @@ const pintores = {
   vacio(g, x, y) { r(g, '#22213a', x, y, TILE, TILE); },
 };
 
-export const SOLIDOS = new Set(['arbol', 'seto', 'agua', 'muroClaro', 'muroLadrillo', 'muroAzul', 'techoRojo', 'techoAzul', 'techoVerde', 'techoOcre', 'ventana', 'cerrada', 'banca', 'letrero', 'fuente', 'farol', 'arbusto', 'rotulo', 'pared', 'estante', 'mesa', 'pizarra', 'barra', 'cama', 'planta', 'vacio']);
+export const SOLIDOS = new Set(['arbol', 'seto', 'agua', 'muroClaro', 'muroLadrillo', 'muroAzul', 'techoRojo', 'techoAzul', 'techoVerde', 'techoOcre', 'ventana', 'cerrada', 'banca', 'letrero', 'fuente', 'farol', 'arbusto', 'rotulo', 'cerca', 'roca', 'tocon', 'tablon', 'columna', 'pendon', 'bicis', 'kiosco', 'tablero', 'lectura', 'pc', 'pared', 'estante', 'mesa', 'pizarra', 'barra', 'cama', 'planta', 'vacio']);
 export const ANIMADOS = new Set(['agua']);
 
 // Fuente de la plaza: una sola pieza de 4x4 tiles, con el agua animada.
@@ -236,14 +316,122 @@ function pintarCuadro(g, a, dir, paso, ox, oy) {
 
 const cache = new Map();
 
+// Contorno oscuro de un píxel: separa a los personajes del fondo.
+function contornear(hoja) {
+  const g = hoja.getContext('2d');
+  const { width: w, height: h } = hoja;
+  const img = g.getImageData(0, 0, w, h);
+  const solido = (x, y) => x >= 0 && y >= 0 && x < w && y < h && img.data[(y * w + x) * 4 + 3] > 200;
+  g.fillStyle = '#2a2238';
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (img.data[(y * w + x) * 4 + 3] <= 200 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => solido(x + dx, y + dy))) g.fillRect(x, y, 1, 1);
+  }
+}
+
 export function hojaPersonaje(a) {
   const clave = JSON.stringify(a);
   if (cache.has(clave)) return cache.get(clave);
   const hoja = lienzo(ANCHO * 3, (ALTO + 4) * 4);
-  const g = hoja.getContext('2d');
+  const g = hoja.getContext('2d', { willReadFrequently: true });
   for (let d = 0; d < 4; d++) for (let p = 0; p < 3; p++) pintarCuadro(g, a, d, p, p * ANCHO, d * (ALTO + 4) + 4);
+  contornear(hoja);
   cache.set(clave, hoja);
   return hoja;
+}
+
+// ---------------------------------------------------- Árboles con volumen
+function disco(g, color, cx, cy, radio) {
+  g.fillStyle = color;
+  for (let y = -radio; y <= radio; y++) {
+    const ancho = Math.round(Math.sqrt(radio * radio - y * y));
+    g.fillRect(cx - ancho, cy + y, ancho * 2 + 1, 1);
+  }
+}
+
+const arboles = [];
+export const ARBOL = { ancho: 32, alto: 40 };
+
+export function arbolGrande(semilla) {
+  const tipo = semilla % 3;
+  if (arboles[tipo]) return arboles[tipo];
+  const c = lienzo(ARBOL.ancho, ARBOL.alto), g = c.getContext('2d');
+  const [oscuro, base, luz, brillo] = [['#1f5a3c', '#2f7d4b', '#45a05f', '#6cc07a'], ['#27613a', '#3a8748', '#55a858', '#83c76d'], ['#1c5247', '#2b7361', '#409378', '#6db79a']][tipo];
+  r(g, '#00000033', 8, 35, 16, 4);
+  r(g, '#2a2238', 13, 25, 6, 12); r(g, '#6b4a30', 14, 25, 4, 11); r(g, '#94683f', 14, 25, 1, 11);
+  const copa = [[16, 14, 12], [9, 19, 7], [23, 19, 7]];
+  copa.forEach(([x, y, k]) => disco(g, '#2a2238', x, y, k + 1));
+  copa.forEach(([x, y, k]) => disco(g, oscuro, x, y, k));
+  disco(g, base, 16, 13, 10); disco(g, base, 10, 18, 5); disco(g, base, 22, 18, 5);
+  disco(g, luz, 14, 11, 7); disco(g, luz, 21, 15, 4);
+  disco(g, brillo, 12, 8, 3); disco(g, brillo, 20, 11, 2);
+  arboles[tipo] = c;
+  return c;
+}
+
+// -------------------------------------------------- Letreros y etiquetas
+const FUENTE = {
+  A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111',
+  F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010',
+  K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010',
+  P: '110101110100100', Q: '010101101111011', R: '110101110101101', S: '011100010001110', T: '111010010010010',
+  U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010',
+  Z: '111001010100111', ' ': '000000000000000', '.': '000000000000010',
+};
+const SIN_TILDE = { Á: 'A', É: 'E', Í: 'I', Ó: 'O', Ú: 'U', Ñ: 'N' };
+
+function escribir(g, texto, x, y, color) {
+  [...texto.toUpperCase()].forEach((letra, i) => {
+    const forma = FUENTE[SIN_TILDE[letra] ?? letra] ?? FUENTE[' '];
+    [...forma].forEach((v, n) => { if (v === '1') r(g, color, x + i * 4 + (n % 3), y + Math.floor(n / 3), 1, 1); });
+  });
+}
+
+const etiquetas = new Map();
+export function etiqueta(texto) {
+  if (etiquetas.has(texto)) return etiquetas.get(texto);
+  const ancho = texto.length * 4 + 7;
+  const c = lienzo(ancho, 11), g = c.getContext('2d');
+  r(g, '#2a2238', 1, 0, ancho - 2, 11); r(g, '#2a2238', 0, 1, ancho, 9);
+  r(g, '#f2e6c9', 1, 1, ancho - 2, 9); r(g, '#d8c49a', 1, 9, ancho - 2, 1);
+  escribir(g, texto, 4, 3, '#3b3560');
+  etiquetas.set(texto, c);
+  return c;
+}
+
+// Reloj de la fachada: una marca fácil de reconocer en el campus.
+export function reloj(g, cx, cy) {
+  disco(g, '#2a2238', cx, cy, 11); disco(g, '#b0853a', cx, cy, 10); disco(g, '#fffaf0', cx, cy, 8);
+  r(g, '#2a2238', cx, cy - 6, 1, 6); r(g, '#2a2238', cx, cy, 5, 1); r(g, '#d9573f', cx, cy, 1, 1);
+  for (const [dx, dy] of [[0, -7], [7, 0], [0, 7], [-7, 0]]) r(g, '#3b3560', cx + dx, cy + dy, 1, 1);
+}
+
+export function placa(g, texto, cx, y) {
+  const ancho = texto.length * 4 + 9;
+  const x = Math.round(cx - ancho / 2);
+  r(g, '#2a2238', x, y, ancho, 11); r(g, '#3b3560', x + 1, y + 1, ancho - 2, 9); r(g, '#f3b63f', x + 1, y + 1, ancho - 2, 1);
+  escribir(g, texto, x + 5, y + 3, '#f7f0dd');
+}
+
+// Bordes de caminos y plazas: el suelo deja de verse como cuadros sueltos.
+export function pintarBordes(g, tiles) {
+  const suelo = new Set(['camino', 'plaza', 'fuente', 'puerta']);
+  tiles.forEach((fila, j) => fila.forEach((t, i) => {
+    if (t !== 'camino' && t !== 'plaza') return;
+    const x = i * TILE, y = j * TILE;
+    const borde = t === 'camino' ? '#b08a5a' : '#a79e92';
+    const libre = (a, b) => tiles[b]?.[a] !== undefined && !suelo.has(tiles[b][a]);
+    if (libre(i, j - 1)) { r(g, borde, x, y, TILE, 1); r(g, '#4f9a55', x + (i * 7) % 10, y - 1, 3, 2); }
+    if (libre(i, j + 1)) r(g, borde, x, y + 15, TILE, 1);
+    if (libre(i - 1, j)) r(g, borde, x, y, 1, TILE);
+    if (libre(i + 1, j)) r(g, borde, x + 15, y, 1, TILE);
+  }));
+  // Sombra bajo los aleros: da altura a los edificios.
+  tiles.forEach((fila, j) => fila.forEach((t, i) => {
+    if (t.startsWith('techo') && !tiles[j + 1]?.[i]?.startsWith('techo')) {
+      r(g, '#2a2238', i * TILE, j * TILE + 14, TILE, 2);
+      r(g, '#00000033', i * TILE, (j + 1) * TILE, TILE, 3);
+    }
+  }));
 }
 
 export function dibujarPersonaje(g, hoja, dir, paso, x, y) {
@@ -287,6 +475,10 @@ export const NPCS = {
   guia: { body: 0, skin: 1, hairStyle: 0, hairColor: 2, face: 1, top: 4, topColor: 6, bottom: 0, bottomColor: 1, shoes: 1, shoesColor: 1, accessory: 2 },
   estudiante1: { body: 2, skin: 3, hairStyle: 4, hairColor: 3, face: 1, top: 0, topColor: 7, bottom: 2, bottomColor: 0, shoes: 0, shoesColor: 0, accessory: 3 },
   estudiante2: { body: 1, skin: 1, hairStyle: 2, hairColor: 4, face: 2, top: 1, topColor: 2, bottom: 0, bottomColor: 3, shoes: 0, shoesColor: 2, accessory: 5 },
+  estudiante4: { body: 0, skin: 2, hairStyle: 7, hairColor: 0, face: 2, top: 1, topColor: 6, bottom: 0, bottomColor: 0, shoes: 0, shoesColor: 0, accessory: 3 },
+  estudiante5: { body: 2, skin: 4, hairStyle: 5, hairColor: 0, face: 1, top: 2, topColor: 1, bottom: 0, bottomColor: 1, shoes: 0, shoesColor: 1, accessory: 3 },
+  estudiante6: { body: 1, skin: 1, hairStyle: 0, hairColor: 1, face: 0, top: 1, topColor: 4, bottom: 0, bottomColor: 3, shoes: 1, shoesColor: 1, accessory: 1 },
+  estudiante7: { body: 2, skin: 3, hairStyle: 4, hairColor: 2, face: 3, top: 0, topColor: 5, bottom: 2, bottomColor: 2, shoes: 0, shoesColor: 3, accessory: 3 },
   estudiante3: { body: 0, skin: 5, hairStyle: 6, hairColor: 0, face: 1, top: 2, topColor: 3, bottom: 3, bottomColor: 4, shoes: 2, shoesColor: 4, accessory: 0 },
 };
 
@@ -342,6 +534,11 @@ const ICONOS = {
   mapa: ['#e9d9b8', [[2, 3, 12, 10]], '#d9573f', [[9, 5, 2, 2], [4, 9, 4, 1], [7, 7, 1, 3]]],
   sol: ['#f3b63f', [[5, 5, 6, 6], [7, 2, 2, 12], [2, 7, 12, 2]], '#fff4c7', [[6, 6, 2, 2]]],
   regalo: ['#d9573f', [[3, 5, 10, 9]], '#f3b63f', [[7, 5, 2, 9], [3, 8, 10, 2]]],
+  bateria: ['#e9e4d4', [[2, 5, 11, 7], [13, 7, 2, 3]], '#3fbf6a', [[3, 6, 3, 5], [7, 6, 3, 5]]],
+  cerebro: ['#ef8fb1', [[4, 3, 8, 2], [2, 5, 12, 6], [4, 11, 8, 2]], '#c75c8a', [[8, 4, 1, 9], [4, 7, 3, 1], [10, 8, 3, 1]]],
+  llama: ['#f3a93f', [[7, 1, 2, 2], [6, 3, 4, 2], [4, 5, 8, 7], [5, 12, 6, 2]], '#ffe39c', [[6, 7, 4, 6], [7, 5, 2, 2]]],
+  pin: ['#d9573f', [[5, 2, 6, 7], [6, 9, 4, 2], [7, 11, 2, 3]], '#fff4c7', [[7, 4, 2, 2]]],
+  agenda: ['#f2e6c9', [[2, 3, 12, 11]], '#d9573f', [[2, 3, 12, 3], [4, 1, 2, 3], [10, 1, 2, 3], [5, 8, 2, 2], [9, 8, 2, 2], [5, 11, 2, 1]]],
 };
 
 export function icono(nombre) {

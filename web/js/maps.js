@@ -67,6 +67,23 @@ function crearCampus() {
   for (let i = 32; i < 38; i++) { m[17][i] = 'arbusto'; m[28][i] = 'arbusto'; }
   for (const [x, y] of [[20, 25], [20, 19], [39, 19], [39, 25]]) m[y][x] = 'banca';
   for (const [x, y, w] of [[26, 13, 2], [33, 10, 3], [10, 15, 3], [48, 16, 3], [16, 22, 2], [43, 25, 3], [24, 33, 3]]) for (let i = 0; i < w; i++) m[y][x + i] = 'flor';
+  // Detalles del campus.
+  for (let i = 14; i < 22; i++) m[15][i] = 'cerca';
+  for (let i = 38; i < 46; i++) m[15][i] = 'cerca';
+  for (let i = 42; i < 48; i++) m[27][i] = 'cerca';
+  for (const [x, y] of [[13, 18], [45, 19], [5, 40], [36, 41], [46, 40], [24, 15]]) m[y][x] = 'roca';
+  for (const [x, y] of [[5, 21], [47, 19], [35, 36], [12, 38], [55, 22]]) m[y][x] = 'tocon';
+  m[16][33] = 'tablon';
+  // Fachada de la Biblioteca Central: columnas, escalinata y pendones.
+  for (const x of [26, 28, 31, 33]) m[7][x] = 'columna';
+  for (const x of [24, 35]) m[7][x] = 'pendon';
+  for (let i = 27; i < 33; i++) m[8][i] = 'escalon';
+  for (const x of [46, 54]) m[10][x] = 'pendon';
+  // Vida de campus: bicicletas, fotocopias y puestos.
+  for (let i = 22; i < 26; i++) m[14][i] = 'bicis';
+  for (let i = 44; i < 47; i++) m[14][i] = 'bicis';
+  m[30][23] = 'kiosco'; m[30][24] = 'kiosco';
+  m[30][35] = 'kiosco';
   // Rótulos junto a las puertas.
   m[6][28] = 'rotulo'; m[6][31] = 'rotulo'; m[10][7] = 'rotulo'; m[10][9] = 'rotulo'; m[10][49] = 'rotulo'; m[10][51] = 'rotulo'; m[32][7] = 'rotulo'; m[32][9] = 'rotulo';
   // Letreros.
@@ -86,7 +103,9 @@ function crearBiblioteca() {
   area(m, 2, 2, 7, 1, 'estante'); area(m, 11, 2, 7, 1, 'estante');
   for (const y of [5, 8]) { area(m, 3, y, 5, 1, 'estante'); area(m, 12, y, 5, 1, 'estante'); }
   area(m, 9, 3, 2, 10, 'alfombra');
-  area(m, 13, 11, 3, 1, 'mesa');
+  area(m, 13, 11, 3, 1, 'lectura');
+  area(m, 3, 11, 5, 1, 'lectura');
+  m[1][5] = 'tablero';
   m[12][14] = 'silla'; m[2][9] = 'planta'; m[2][10] = 'planta';
   m[13][9] = 'salida'; m[13][10] = 'salida';
   return m;
@@ -95,6 +114,7 @@ function crearBiblioteca() {
 function crearCafeteria() {
   const m = interior(18, 13, 'baldosa');
   area(m, 2, 3, 14, 1, 'barra');
+  m[1][4] = 'tablero';
   for (const [x, y] of [[3, 7], [8, 7], [13, 7], [3, 10], [13, 10]]) { area(m, x, y, 2, 1, 'mesa'); m[y + 1][x] = 'silla'; }
   m[12][8] = 'salida'; m[12][9] = 'salida';
   return m;
@@ -103,8 +123,9 @@ function crearCafeteria() {
 function crearAulas() {
   const m = interior(18, 13, 'piso');
   area(m, 4, 1, 10, 1, 'pizarra');
-  for (const y of [5, 7, 9]) for (const x of [3, 6, 11, 14]) { m[y][x] = 'mesa'; m[y + 1][x] = 'silla'; }
-  m[3][14] = 'mesa'; m[3][15] = 'mesa';
+  for (const y of [5, 8]) for (const x of [2, 3, 4, 5, 12, 13, 14, 15]) { m[y][x] = 'pc'; m[y + 1][x] = 'silla'; }
+  m[3][14] = 'pc'; m[3][15] = 'mesa';
+  m[1][2] = 'tablero';
   m[12][8] = 'salida'; m[12][9] = 'salida';
   return m;
 }
@@ -123,7 +144,12 @@ const decir = (...lineas) => ({ lineas });
 
 export const MAPAS = {
   campus: {
-    nombre: 'Campus', tiles: crearCampus(), fuente: { x: 28, y: 21 }, zonaEn(x, y) {
+    nombre: 'Campus', tiles: crearCampus(), fuente: { x: 28, y: 21 },
+    placas: [{ texto: 'BIBLIOTECA CENTRAL', x: 30, y: 5 }, { texto: 'CAFETERIA', x: 9, y: 9 }, { texto: 'FACULTAD DE SISTEMAS', x: 50, y: 9 }, { texto: 'RESIDENCIA', x: 9, y: 31 }],
+    reloj: { x: 30, y: 4 },
+    kiosco: 'Fotocopias y anillados. La fila de hoy dice todo: es semana de parciales.',
+    tablon: 'Tablón: Semana 8, exámenes parciales. Tutorías en la Biblioteca y talleres de bienestar en el Parque.',
+    zonaEn(x, y) {
       if (x >= 22 && x < 38 && y >= 18 && y < 28) return 'plaza';
       if (x >= 38 && y >= 28) return 'parque';
       return null;
@@ -135,11 +161,15 @@ export const MAPAS = {
       { x: 8, y: 33, a: 'residencia', ax: 8, ay: 11, zona: 'residencia' },
     ],
     npcs: [
-      { id: 'guia', x: 26, y: 26, dir: 0, ruta: 'quieto', nombre: 'Rafa, guía del campus', decir: decir('¡Te damos la bienvenida al campus! En cada edificio hay alguien con una historia.', 'Empieza por la Biblioteca o la Cafetería. Las demás zonas se abren al vivir historias.') },
-      { id: 'estudiante1', x: 35, y: 24, dir: 1, ruta: 'pasea', nombre: 'Mar', decir: decir('Dicen que el parque es perfecto para pensar. Se abre cuando hayas vivido un par de historias.') },
+      { id: 'guia', x: 26, y: 26, dir: 0, ruta: 'quieto', nombre: 'Rafa, guía del campus', decir: decir('¡Te damos la bienvenida a la FISI! Es semana de parciales.', 'Mira la barra superior: ahí dice a quién buscar hoy.') },
+      { id: 'estudiante1', x: 35, y: 24, dir: 1, ruta: 'pasea', nombre: 'Mar', decir: decir('Esta semana todos andamos corriendo. Una pausa corta también ayuda.') },
+      { id: 'estudiante4', x: 23, y: 20, dir: 2, ruta: 'quieto', nombre: 'Diego', decir: decir('Mi grupo de Algoritmos sigue sin responder. Y la entrega es el miércoles.') },
+      { id: 'estudiante5', x: 25, y: 20, dir: 1, ruta: 'quieto', nombre: 'Rosa', decir: decir('¿Ya viste el tablón? Hay tutorías de Cálculo en la Biblioteca.') },
+      { id: 'estudiante6', x: 36, y: 19, dir: 0, ruta: 'pasea', nombre: 'Iván', decir: decir('Llevo tres cafés. No sé si estudio o solo tiemblo.') },
+      { id: 'estudiante7', x: 26, y: 15, dir: 0, ruta: 'pasea', nombre: 'Camila', decir: decir('Vengo del laboratorio. Las máquinas de la fila dos no prenden.') },
       { id: 'estudiante2', x: 18, y: 23, dir: 2, ruta: 'pasea', nombre: 'Leo', decir: decir('Las misiones de Vela son para la vida real. Las puedes cambiar si no te encajan.') },
-      { id: 'estudiante3', x: 30, y: 33, dir: 3, ruta: 'pasea', nombre: 'Noa', decir: decir('Aquí nadie te pone nota por lo que eliges. Yo repetí una historia solo para ver qué pasaba.') },
-      { id: 'sara', x: 44, y: 34, dir: 0, ruta: 'quieto', nombre: 'Sara', historia: 'descanso' },
+      { id: 'estudiante3', x: 30, y: 33, dir: 3, ruta: 'pasea', nombre: 'Noa', decir: decir('Aquí nadie te pone nota por lo que eliges. Es un ensayo de tu semana.') },
+      { id: 'sara', x: 44, y: 34, dir: 0, ruta: 'quieto', nombre: 'Sara', decir: decir('Hoy prefiero pensar en silencio un rato.') },
       { id: 'dani', x: 46, y: 31, dir: 0, ruta: 'pasea', nombre: 'Dani', decir: decir('¡Entrenamos a las cinco! Sara dice que vendrá. Eso espero.') },
     ],
     letreros: {
@@ -150,28 +180,30 @@ export const MAPAS = {
     reja: { x1: 38, x2: 38, y1: 28, y2: 41, zona: 'parque' },
   },
   biblioteca: {
-    nombre: 'Biblioteca', tiles: crearBiblioteca(), zona: 'biblioteca',
+    nombre: 'Biblioteca', tiles: crearBiblioteca(), zona: 'biblioteca', placas: [{ texto: 'SALA DE LECTURA', x: 10, y: 0 }],
+    lectura: 'Una mesa con lámpara verde y apuntes llenos de resaltador.',
     salidas: [{ x: 9, y: 13, a: 'campus', ax: 29, ay: 8 }, { x: 10, y: 13, a: 'campus', ax: 30, ay: 8 }],
     npcs: [
-      { id: 'tomas', x: 14, y: 10, dir: 0, ruta: 'quieto', nombre: 'Tomás', historia: 'semana' },
+      { id: 'tomas', x: 14, y: 10, dir: 0, ruta: 'quieto', nombre: 'Tomás', decir: decir('Hoy la biblioteca está llena. Todos andamos con parciales.') },
       { id: 'ines', x: 5, y: 7, dir: 2, ruta: 'quieto', nombre: 'Inés', decir: decir('Estudiar en grupo me salvó el año pasado. Y también estudiar sola. Depende del día.') },
     ],
     estantes: 'Hay libros sobre casi todo. Un marcador dice: «Una página también cuenta».',
   },
   cafeteria: {
-    nombre: 'Cafetería', tiles: crearCafeteria(), zona: 'cafeteria',
+    nombre: 'Cafetería', tiles: crearCafeteria(), zona: 'cafeteria', placas: [{ texto: 'MENU DEL DIA', x: 9, y: 0 }],
     salidas: [{ x: 8, y: 12, a: 'campus', ax: 8, ay: 12 }, { x: 9, y: 12, a: 'campus', ax: 8, ay: 12 }],
     npcs: [
-      { id: 'lucia', x: 9, y: 8, dir: 0, ruta: 'quieto', nombre: 'Lucía', historia: 'no' },
+      { id: 'lucia', x: 9, y: 8, dir: 0, ruta: 'quieto', nombre: 'Lucía', decir: decir('Siempre me piden ayuda en parciales. Yo también tengo lo mío.') },
       { id: 'nico', x: 14, y: 5, dir: 3, ruta: 'quieto', nombre: 'Nico', decir: decir('¿Has visto a Lucía? Ella siempre me ayuda.') },
     ],
     barra: 'Huele a café y a pan recién hecho. Hoy el menú dice: «sopa y calma».',
   },
   aulas: {
-    nombre: 'Aulas', tiles: crearAulas(), zona: 'aulas',
+    nombre: 'Laboratorio', tiles: crearAulas(), zona: 'aulas', placas: [{ texto: 'LABORATORIO DE COMPUTO', x: 9, y: 0 }],
+    pc: 'Compila, falla, compila otra vez. Alguien dejó abierta la práctica de la semana.',
     salidas: [{ x: 8, y: 12, a: 'campus', ax: 50, ay: 12 }, { x: 9, y: 12, a: 'campus', ax: 50, ay: 12 }],
     npcs: [
-      { id: 'bruno', x: 8, y: 7, dir: 0, ruta: 'quieto', nombre: 'Bruno', historia: 'expectativas' },
+      { id: 'bruno', x: 8, y: 7, dir: 0, ruta: 'quieto', nombre: 'Bruno', decir: decir('Todos comparan notas por el grupo. Prefiero no mirar.') },
       { id: 'prof', x: 12, y: 3, dir: 0, ruta: 'quieto', nombre: 'Prof. Aguirre', decir: decir('Mi oficina siempre está abierta. A veces una buena pregunta vale más que una buena nota.') },
     ],
     pizarra: 'Alguien escribió: «Equivocarse también es información».',
@@ -180,7 +212,7 @@ export const MAPAS = {
     nombre: 'Residencia', tiles: crearResidencia(), zona: 'residencia',
     salidas: [{ x: 8, y: 12, a: 'campus', ax: 8, ay: 34 }, { x: 9, y: 12, a: 'campus', ax: 8, ay: 34 }],
     npcs: [
-      { id: 'mateo', x: 6, y: 9, dir: 2, ruta: 'quieto', nombre: 'Mateo', historia: 'luces' },
+      { id: 'mateo', x: 6, y: 9, dir: 2, ruta: 'quieto', nombre: 'Mateo', decir: decir('En semana de parciales, aquí nadie duerme mucho.') },
       { id: 'valen', x: 13, y: 9, dir: 1, ruta: 'quieto', nombre: 'Valentina', decir: decir('Los jueves cocinamos. Bueno, lo intentamos.') },
     ],
     camas: 'Una cama bien hecha. Parece una invitación.',
