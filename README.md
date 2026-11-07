@@ -1,7 +1,10 @@
 # LEVELIFE
 
-Es un videojuego en RPG 2D para el bienestar universitario. El estudiante explora el campus de su universidad, vive
-historias con decisiones y recibe misiones para su vida cotidiana.
+Es un videojuego en RPG 2D para el bienestar universitario. **Practica tu semana antes de vivirla:** el estudiante
+escribe sus pendientes reales de la semana de parciales, los vive como casos en un campus y recibe un análisis
+de sus decisiones, metas de mejora y una misión para cada actividad.
+
+Público inicial: estudiantes de primeros ciclos, durante la semana de exámenes parciales.
 
 ## Cómo jugar
 
@@ -20,11 +23,19 @@ python -m venv .venv
 | Interactuar | Espacio, Enter o E | A |
 | Menú | Esc o M | B |
 
+## Cómo funciona
+
+1. Eliges tu área de estudios y escribes de 1 a 5 pendientes con su fecha.
+2. Vela convierte cada pendiente en varios casos, con decisiones y consecuencias.
+3. Cada decisión mueve cuatro dimensiones: energía, tensión, rendimiento y red de apoyo.
+4. Tras cada caso, Vela dice si esa decisión te ayudó a rendir y comenta tu estilo de decidir.
+5. Al final, el Vela Report muestra tus dimensiones, patrones, metas de mejora, microestrategias y misiones.
+
 ## Agente de IA
 
-Vela es la agente del juego (`server/ai/agent.py`). Con sus herramientas de solo lectura revisa las
-señales, las decisiones, las reflexiones, las misiones y el avance de cada estudiante. Con eso analiza
-patrones, crea misiones personalizadas, ajusta las que se le piden, comenta las completadas y conversa.
+Vela es la agente del juego (`server/ai/agent.py`) y usa Gemini mediante el SDK oficial de Google. Crea los casos,
+comenta cada respuesta, redacta el reporte y conversa. Los números del reporte no dependen del modelo: los calcula
+`server/analytics.py` a partir de lo que realmente se eligió.
 
 Para activarla:
 
@@ -32,8 +43,7 @@ Para activarla:
 2. Pon tu clave en `GEMINI_API_KEY`. Se crea gratis en Google AI Studio.
 3. Reinicia el juego.
 
-Sin clave, Vela aparece como no conectada, no hay análisis y solo se ofrecen misiones generales
-del catálogo, identificadas como tales. Nunca se simula un análisis.
+Sin clave o si el modelo falla, el juego usa casos base por área y un reporte calculado, identificados como tales.
 
 ## Estructura
 
@@ -41,9 +51,12 @@ del catálogo, identificadas como tales. Nunca se simula un análisis.
 run.py, iniciar.bat       arranque
 server/
   auth.py                 cuentas, sesión, recuperación y consentimientos
-  game.py                 estado, historias, misiones, progreso, asistente y privacidad
+  week.py                 pendientes, casos, comentarios y reporte de la semana
+  analytics.py            dimensiones, patrones, alertas y situaciones difíciles
+  game.py                 estado, recursos, asistente y privacidad
   gamification.py         XP, niveles, insignias y recompensas
-  content/stories.py      historias ramificadas (se validan al arrancar)
+  content/scenarios/      casos por área de estudios, en JSON
+  content/week.py         estructura de la semana y casos base
   content/missions.py     catálogo: inspiración del agente y misiones generales
   content/world.py        dimensiones, señales, zonas y opciones de personaje
   content/legal.py        términos y política de privacidad
@@ -58,23 +71,24 @@ web/js/
   dialogo.js              caja de diálogo y alternativas
   pantallas.js            portada, cuenta, documentos, editor y tutorial
   menu.js                 menú del juego
+  vela_report.js          reporte final
   main.js                 ciclo principal
 ```
 
 ## Principios que el código hace cumplir
 
-- **Sin respuestas correctas.** XP, insignias y progreso no dependen de lo elegido. Hay una prueba para eso.
-- **Una decisión no es un patrón.** Una señal solo es recurrente si aparece en dos o más historias.
+- **Sin respuestas correctas.** Cada decisión tiene ganancias y costos en energía, carga mental y rendimiento. XP, insignias y progreso no dependen de lo elegido, y hay una prueba para eso.
+- **Una decisión no es un patrón.** Una etiqueta solo es patrón si se repite dos o más veces en la sesión.
+- **Sin etiquetas personales.** Vela comenta decisiones dentro del juego, no la personalidad, la salud ni la capacidad.
 - **Consentimiento separado.** Aceptar los términos no autoriza el análisis; sin esa autorización no se guarda qué elegiste.
 - **Riesgo primero.** Un mensaje que sugiere riesgo recibe orientación fija y nunca llega al modelo.
 - **Datos mínimos.** Nombre, usuario y correo no se envían al modelo.
 - **Control de los datos.** Se pueden consultar, descargar, corregir y borrar desde Configuración.
 
-## Agregar una historia
+## Agregar casos
 
-1. Añádela en `server/content/stories.py`, con 2 a 4 alternativas por nodo.
-2. Coloca su NPC con `historia: 'id'` en `web/js/maps.js`.
-3. Si el personaje es nuevo, añade su apariencia en `NPCS` de `web/js/art.js`.
+Añádelos en `server/content/scenarios/`. Cada caso tiene una escena con `{task}` y tres opciones, cada una con su
+consecuencia y una señal de `server/content/world.py`. Ninguna opción debe ser solo ganancia o solo costo.
 
 ## Pruebas
 
@@ -94,6 +108,13 @@ Usa una API de IA falsa local: no gasta créditos.
 - La detección de riesgo busca frases concretas y puede fallar: no reemplaza el acompañamiento humano.
 - La recuperación usa un código entregado al registrarse. Para recuperar por correo hace falta un servidor SMTP.
 - Sirve el juego por HTTPS y define `LEVELIFE_SECURE_COOKIES=1`.
+
+## Origen del proyecto
+
+La paleta, los marcos, el HUD, el diálogo y las pestañas del menú provienen de un prototipo de LEVELIFE
+creado antes de la hackatón, y la organización autorizó reutilizar esa interfaz. Otras partes de la base se
+escribieron después de revisar ese prototipo y se le parecen. El agente Vela, los casos por actividad, la
+telemetría y el reporte final se desarrollaron durante el evento.
 
 ## Licencias
 

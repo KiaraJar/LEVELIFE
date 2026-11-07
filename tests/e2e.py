@@ -23,7 +23,22 @@ class ApiFalsa(BaseHTTPRequestHandler):
         cuerpo = json.loads(self.rfile.read(int(self.headers["content-length"])))
         generacion = cuerpo.get("generationConfig", {})
         ya_consulto = any("functionResponse" in p for c in cuerpo["contents"] for p in c.get("parts", []))
-        if generacion.get("responseMimeType") == "application/json":
+        esquema = json.dumps(generacion)
+        if "scene" in esquema:
+            opcion = {"text": "Ordeno mi día.", "result": "Avanzas con calma, aunque dejas algo para mañana.", "analysis": "Parece que ordenar te ayuda a rendir, aunque consume energía.", "signal": "priorizar"}
+            opciones = [opcion, opcion, opcion]
+            casos = [{"task": t, "scene": f"Se acerca {t} y el grupo pide ayuda.", "options": opciones}
+                     for t in ("Trabajo de Base de Datos", "Parcial de Cálculo") for _ in range(3)]
+            partes = [{"text": json.dumps({"cases": casos}, ensure_ascii=False)}]
+        elif "patterns" in esquema:
+            mision = {"title": "Primer paso", "detail": "Dedica un bloque corto.", "when": "Mañana", "minutes": 25}
+            plan = {"summary": "Parece que sueles ordenar antes de actuar.",
+                    "patterns": [{"signal": "priorizar", "guidance": "Reserva también una pausa."}],
+                    "strategies": ["Haz una lista de tres pendientes.", "Fija una hora de cierre."],
+                    "goals": [{"situation": "Cuando todo coincide.", "goal": "Elegir una sola prioridad.", "steps": ["Pausa.", "Elige.", "Actúa."], "measure": "Lo usaste una vez."}],
+                    "missions": [{**mision, "task": "Trabajo de Base de Datos"}, {**mision, "task": "Parcial de Cálculo"}]}
+            partes = [{"text": json.dumps(plan, ensure_ascii=False)}]
+        elif generacion.get("responseMimeType") == "application/json":
             ApiFalsa.n += 1
             mision = {"title": f"Camino propio {ApiFalsa.n}", "dimension": "social", "description": "Escríbele a alguien de confianza.",
                       "objective": "Compartir cómo vas.", "minutes": 10, "difficulty": 1, "frequency": "Esta semana",
@@ -34,8 +49,8 @@ class ApiFalsa(BaseHTTPRequestHandler):
                          "strengths": ["detenerte a pensar"], "opportunities": ["pedir apoyo a tiempo"],
                          "missions": [mision, {**mision, "title": f"Pausa elegida {ApiFalsa.n}", "dimension": "fisico"}]}
             partes = [{"text": json.dumps(datos, ensure_ascii=False)}]
-        elif ya_consulto:
-            partes = [{"text": "Te leo. Parece que ha sido una semana intensa."}]
+        elif ya_consulto or not cuerpo.get("tools"):
+            partes = [{"text": "Te leo. Parece que tiendes a ordenar antes de actuar."}]
         else:
             partes = [{"functionCall": {"name": "ver_senales", "args": {}}}]
         respuesta = json.dumps({"candidates": [{"content": {"role": "model", "parts": partes}, "finishReason": "STOP"}],
@@ -80,42 +95,6 @@ def teletransportar(p, x, y, dir_=0):
     p.evaluate(f"() => {{ const m = window.levelife.mundo; m.jugador.x = {x}*16; m.jugador.y = {y}*16; m.jugador.dir = {dir_}; m.revisarZona(); m.centrar(); }}")
 
 
-def vivir_historia(p, x, y, dir_, nombre=None):
-    teletransportar(p, x, y, dir_)
-    p.keyboard.press("Space")
-    p.wait_for_selector("#dialogo:not([hidden])")
-    capturado = False
-    for _ in range(8):
-        avanzar_dialogo(p)
-        if p.locator("#dialogo-opciones button").count():
-            if nombre and not capturado:
-                cap(p, f"{nombre}_decision")
-                capturado = True
-            p.keyboard.press("Enter")
-            p.wait_for_timeout(120)
-            continue
-        break
-    p.wait_for_selector("#capa textarea")
-    if nombre:
-        cap(p, f"{nombre}_reflexion")
-    p.fill("#capa textarea", "Me hizo pensar en mi semana.")
-    p.click("#capa >> text=Continuar")
-    p.wait_for_selector("#capa >> text=Historia vivida")
-    p.click("#capa >> text=Continuar")
-    p.wait_for_selector("#capa >> text=Vela está analizando")
-    p.wait_for_selector("#dialogo:not([hidden])")
-    if nombre:
-        cap(p, f"{nombre}_vela")
-    avanzar_dialogo(p)
-    p.wait_for_selector("#capa >> text=Nuevas misiones")
-    if nombre:
-        cap(p, f"{nombre}_misiones")
-    p.locator("#capa .btn.verde").first.click()
-    p.wait_for_timeout(250)
-    p.click("#capa >> text=Decidir después")
-    p.wait_for_timeout(150)
-
-
 def jugar(navegador, url):
     contexto = navegador.new_context(viewport={"width": 1100, "height": 720})
     p = contexto.new_page()
@@ -153,11 +132,24 @@ def jugar(navegador, url):
     p.wait_for_timeout(1400)
     cap(p, "05_introduccion")
     avanzar_dialogo(p)
-    p.wait_for_selector("text=Paso 1 de 6")
+    p.wait_for_selector("text=Paso 1 de 7")
     cap(p, "06_tutorial")
-    for _ in range(5):
+    for _ in range(6):
         p.click("text=Siguiente")
     p.click("text=¡Listo!")
+
+    # Área de estudios y pendientes reales: Vela los convierte en casos.
+    p.wait_for_selector("text=¿Qué estudias?")
+    cap(p, "06a_area")
+    p.click("button:has-text('Ingeniería de Sistemas')")
+    p.wait_for_selector("text=Crear mi semana")
+    p.fill("input[name=nombre0]", "Parcial de Cálculo")
+    p.select_option("select[name=dia0]", "Viernes")
+    p.fill("input[name=nombre1]", "Trabajo de Base de Datos")
+    p.select_option("select[name=dia1]", "Miércoles")
+    cap(p, "06b_pendientes")
+    p.click("text=Crear mi semana")
+    p.wait_for_function("() => window.levelife.ocupado === false && window.levelife.semana", timeout=15000)
     p.wait_for_timeout(400)
 
     # El movimiento real debe cambiar la posición y las colisiones deben detenerlo.
@@ -173,52 +165,92 @@ def jugar(navegador, url):
     p.keyboard.up("ArrowUp")
     assert p.evaluate("() => window.levelife.mundo.jugador.y") > 24 * 16, "la fuente debe bloquear el paso"
 
-    # Puerta de la Biblioteca y primera historia.
-    teletransportar(p, 29, 9, 3)
+    teletransportar(p, 30, 11, 3)
+    p.wait_for_timeout(300)
+    cap(p, "07b_fachada")
+    # Lunes a pie: entrar a la Biblioteca y hablar con quien tiene la marca.
+    teletransportar(p, 29, 10, 3)
     p.keyboard.down("ArrowUp")
     p.wait_for_function("() => window.levelife.mundo.nombreMapa === 'biblioteca'", timeout=5000)
     p.keyboard.up("ArrowUp")
     p.wait_for_timeout(700)
     cap(p, "08_biblioteca")
-    vivir_historia(p, 13, 10, 2, "09")
-    assert p.evaluate("() => window.levelife.estado.zones.aulas.open"), "Aulas debe abrirse"
+    assert p.inner_text("#hud-nombre") == "Estudiante | Semestre 1"
+    assert "Semana 8" in p.inner_text("#hud-ciclo")
+    assert "Tom" in p.inner_text("#hud-objetivo")
+    assert "6 Dilemas" in p.inner_text("#hud-misiones")
+    teletransportar(p, 13, 10, 2)
+    p.keyboard.press("Space")
+    p.wait_for_selector("#dialogo:not([hidden])")
+    avanzar_dialogo(p)
+    cap(p, "09_decision")
+    p.keyboard.press("Enter")
+    p.wait_for_function("() => window.levelife.semana.day === 1")
+    p.wait_for_timeout(200)
+    for _ in range(20):
+        if "rindes" in p.inner_text("#dialogo-texto") or "rendimiento" in p.inner_text("#dialogo-texto"):
+            break
+        p.keyboard.press("Space")
+        p.wait_for_timeout(80)
+    assert p.inner_text("#dialogo-nombre") == "Vela", "Vela debe analizar cada respuesta"
+    cap(p, "09b_veredicto")
+    for _ in range(30):
+        if "tiendes" in p.inner_text("#dialogo-texto"):
+            break
+        p.keyboard.press("Space")
+        p.wait_for_timeout(100)
+    assert "tiendes" in p.inner_text("#dialogo-texto"), "Vela debe comentar en el diálogo"
+    assert p.inner_text("#dialogo-nombre") == "Vela"
+    cap(p, "09c_comentario")
+    avanzar_dialogo(p)
+    p.wait_for_function("() => window.levelife.ocupado === false")
 
-    p.click("#hud-misiones")
-    p.wait_for_selector("text=MIS MISIONES DE BIENESTAR")
-    cap(p, "10_misiones")
-    p.locator("#capa >> text=Marcar completada").first.click()
-    p.fill("#capa textarea", "Lo logré.")
-    p.click("#capa >> text=Regular")
-    p.wait_for_selector("text=¡Misión completada!")
-    cap(p, "11_mision_ok")
-    p.click("#capa >> text=Seguir")
-    p.wait_for_selector("text=MIS MISIONES DE BIENESTAR")
-    p.click("#capa >> text=Cerrar")
+    # Los días restantes con la misma interacción, sin caminar.
+    for dia in range(2, 7):
+        p.evaluate("() => { window.levelife.jugarDia(); }")
+        p.wait_for_selector("#dialogo:not([hidden])")
+        avanzar_dialogo(p)
+        p.keyboard.press("Enter")
+        p.wait_for_function(f"() => window.levelife.semana.day === {dia}")
+        p.wait_for_timeout(200)
+        avanzar_dialogo(p)
+    p.wait_for_selector(".consola", timeout=15000)
+    cap(p, "10_plan")
+    assert p.inner_text("#hud-energia-valor") in p.inner_text(".dims"), "el reporte debe mostrar los valores actuales"
+    assert p.locator(".dim").count() == 4, "debe mostrar las cuatro dimensiones"
+    assert p.locator(".consola .patron").count() >= 1, "debe mostrar el patrón"
+    assert "Bienestar Universitario" in p.inner_text(".derivacion")
+    assert p.locator(".consola .mision-plan").count() == 2, "debe haber una misión por actividad"
+    assert p.locator(".consola .meta").count() == 1, "debe mostrar las metas de mejora"
+    p.locator(".consola .secundario").first.click()
+    p.wait_for_selector(".consola .secundario:disabled")
+    p.click(".consola button:has-text('Cerrar')")
+    p.wait_for_function("() => window.levelife.ocupado === false")
 
-    # Menú completo.
+    # Menú con pestañas.
     p.keyboard.press("m")
-    p.wait_for_selector("#capa >> text=Menú")
+    p.wait_for_selector(".tabs")
     cap(p, "12_menu")
-    for opcion, espera, nombre in (
-        ("Mi progreso", "text=Lo que eliges en las historias", "13_progreso"),
-        ("Mi historial", "text=Desenlace", "14_historial"),
-        ("Mis logros", "text=Primera página", "15_logros"),
-        ("Inventario", "text=Corona de hojas", "16_inventario"),
-        ("Mapa del campus", ".mapa-img", "17_mapa"),
-        ("Configuración", "text=Privacidad y consentimientos", "18_configuracion"),
+    for pestana, espera, nombre in (
+        ("Mi semana", "text=Tus actividades", "13_semana"),
+        ("Mapa", ".mapa-img", "17_mapa"),
+        ("Ajustes", "text=Privacidad y consentimientos", "18_configuracion"),
+        ("Inicio", ".stats", "12b_inicio"),
     ):
-        p.click(f"#capa button:has-text('{opcion}')")
+        p.click(f".tabs button:has-text('{pestana}')")
         p.wait_for_selector(espera)
         cap(p, nombre)
-        p.click("#capa >> text=Volver")
-        p.wait_for_selector("#capa >> text=Mi progreso")
-    p.click("#capa button:has-text('Mi asistente IA')")
+    p.click(".tabs .cerrar")
+
+    # Acceso directo al chat desde la barra superior.
+    p.click("#hud-vela")
     p.wait_for_selector(".chat")
     p.fill("#capa input", "¿Qué has notado en mis decisiones?")
     p.keyboard.press("Enter")
     p.wait_for_selector(".chat .assistant >> nth=1")
     cap(p, "19_asistente")
-    p.click("#capa >> text=Cerrar")
+    p.click(".tabs .cerrar")
+    p.wait_for_function("() => window.levelife.mundo.pausa === false")
 
     # Persistencia al recargar.
     p.evaluate("() => window.levelife.guardarPosicion(true)")
@@ -246,6 +278,7 @@ def movil(navegador, url):
     assert p.locator("#tactil").is_visible(), "la cruceta debe verse"
     teletransportar(p, 9, 9, 0)
     cap(p, "21_movil_mundo")
+    assert "Reporte listo" in p.inner_text("#hud-misiones")
     inicio = p.evaluate("() => window.levelife.mundo.jugador.y")
     caja = p.locator("[data-dir=up]").bounding_box()
     p.dispatch_event("[data-dir=up]", "pointerdown")

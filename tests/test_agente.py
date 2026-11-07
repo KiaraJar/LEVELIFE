@@ -158,6 +158,49 @@ class Ciclo(unittest.TestCase):
         self.assertEqual(self.agente.chat("hola", CTX, historial), "Te leo.")
         self.assertEqual([m["role"] for m in Falso.vistos[0]["cuerpo"]["contents"]], ["user", "model", "user"])
 
+    OPCION = {"text": "A", "result": "R", "analysis": "Aporta orden.", "signal": "priorizar"}
+    TAREAS = [{"name": "Parcial", "day": "Viernes"}, {"name": "Trabajo", "day": "Lunes"}]
+
+    def caso(self, tarea, opcion=None):
+        return {"task": tarea, "scene": "Escena.", "options": [opcion or self.OPCION] * 3}
+
+    def test_crea_varios_casos_por_actividad_y_los_ordena(self):
+        casos = [self.caso("Trabajo"), self.caso("Parcial"), self.caso("Trabajo"), self.caso("Parcial")]
+        Falso.cola[:] = [texto(json.dumps({"cases": casos}))]
+        r = self.agente.generate_week(self.TAREAS, 2)
+        self.assertEqual([c["task"] for c in r], ["Parcial", "Parcial", "Trabajo", "Trabajo"])
+        self.assertEqual(r[0]["options"][0]["signals"], ["priorizar"])
+        self.assertNotIn("tools", Falso.vistos[0]["cuerpo"], "se ahorra cupo: no necesita herramientas")
+
+    def test_casos_incompletos_o_con_senal_inventada_fallan(self):
+        mala = {**self.OPCION, "signal": "inventada"}
+        for casos in ([self.caso("Parcial")] * 4, [self.caso("Parcial", mala), self.caso("Parcial", mala), self.caso("Trabajo", mala), self.caso("Trabajo", mala)]):
+            Falso.cola[:] = [texto(json.dumps({"cases": casos}))]
+            with self.assertRaises(AgenteNoDisponible):
+                self.agente.generate_week(self.TAREAS, 2)
+
+    def test_plan_descarta_patrones_sin_repeticion_y_exige_cada_actividad(self):
+        mision = {"title": "T", "detail": "D", "when": "Hoy", "minutes": 999}
+        patrones = [{"signal": "priorizar", "guidance": "G"}, {"signal": "evitar", "guidance": "Y"}]
+        bueno = {"summary": "S", "patterns": patrones, "strategies": ["A", "B"], "goals": [{"situation": "S", "goal": "G", "steps": ["1", "2", "3"], "measure": "M"}, {"situation": "S", "goal": "Mala", "steps": ["1"], "measure": "M"}], "missions": [{**mision, "task": "Trabajo"}, {**mision, "task": "Parcial"}]}
+        Falso.cola[:] = [texto(json.dumps(bueno))]
+        r = self.agente.week_plan(self.TAREAS, [], [{"code": "priorizar", "count": 3}], {})
+        self.assertEqual([p["signal"] for p in r["patterns"]], ["priorizar"], "solo señales que se repitieron")
+        self.assertEqual([m["task"] for m in r["missions"]], ["Parcial", "Trabajo"])
+        self.assertEqual(r["missions"][0]["minutes"], 180)
+        self.assertEqual([m["goal"] for m in r["goals"]], ["G"], "una meta necesita tres pasos")
+        Falso.cola[:] = [texto(json.dumps({**bueno, "missions": bueno["missions"][:1]}))]
+        with self.assertRaises(AgenteNoDisponible):
+            self.agente.week_plan(self.TAREAS, [], [], {})
+
+    def test_comentario_de_estilo_sin_herramientas_y_con_filtro(self):
+        Falso.cola[:] = [texto("Parece que tiendes a pedir apoyo.")]
+        self.assertEqual(self.agente.style_comment([{"caso": "C", "eligio": "E"}]), "Parece que tiendes a pedir apoyo.")
+        self.assertNotIn("tools", Falso.vistos[0]["cuerpo"])
+        Falso.cola[:] = [texto("Eso parece un trastorno.")]
+        with self.assertRaises(AgenteNoDisponible):
+            self.agente.style_comment([])
+
     def test_adaptar_mision(self):
         Falso.cola[:] = [texto("Ya revisé."), texto(json.dumps({"description": "Camina diez minutos.", "minutes": 10, "difficulty": 1, "frequency": "Mañana"}))]
         r = self.agente.adapt_mission(CTX, MISION, "más corta, por favor")

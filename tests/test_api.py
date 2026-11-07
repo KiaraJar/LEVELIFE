@@ -14,9 +14,13 @@ os.environ["GEMINI_API_KEY"] = ""
 from server import create_app  # noqa: E402
 from server.ai import safety, service  # noqa: E402
 from server.ai.patterns import build_context  # noqa: E402
+from server.analytics import PATTERNS, STRATEGIES, analyze_session, default_goals, default_strategies, hard_situations  # noqa: E402
+from server.content.scenarios import AREAS, pool  # noqa: E402
 from server.content.stories import STORIES, validate_stories  # noqa: E402
+from server.content.world import choice_impact  # noqa: E402
 from server.db import connect  # noqa: E402
 from server.gamification import level_info  # noqa: E402
+from server.week import verdict  # noqa: E402
 
 CUENTA = {"name": "Ada Pérez", "nickname": "ada_1", "email": "ada@uni.edu", "password": "clave1234", "confirm": "clave1234"}
 AVATAR = {"body": 0, "skin": 1, "hairStyle": 2, "hairColor": 3, "face": 0, "top": 1, "topColor": 2,
@@ -48,6 +52,22 @@ class AgenteFalso:
 
     def adapt_mission(self, ctx, m, pedido):
         return {"description": f"Ajustada: {pedido}", "minutes": 5, "difficulty": 1, "frequency": "Mañana"}
+
+    def generate_week(self, tareas, cantidad, area, conflictos):
+        self.tareas, self.cantidad, self.area, self.conflictos = tareas, cantidad, area, conflictos
+        opcion = {"text": "Ordeno mi día.", "result": "Avanzas con calma.", "signals": ["priorizar"]}
+        return [{"task": t["name"], "scene": f"Caso {i} de {t['name']}.", "options": [opcion, opcion, opcion]} for t in tareas for i in range(cantidad)]
+
+    def week_plan(self, tareas, decisiones, repetidas, recursos, area, dificiles):
+        self.decisiones, self.repetidas, self.dificiles = decisiones, repetidas, dificiles
+        return {"summary": "Tu plan.", "patterns": [{"signal": r["code"], "guidance": "Reserva una pausa."} for r in repetidas],
+                "strategies": ["Haz una lista.", "Fija una hora de cierre."],
+                "goals": [{"situation": "Cuando se junta todo.", "goal": "Elegir una prioridad.", "steps": ["Uno.", "Dos.", "Tres."], "measure": "Lo usaste una vez."}],
+                "missions": [{"task": t["name"], "title": "Paso", "detail": "Hazlo.", "when": "Hoy", "minutes": 10, "done": False} for t in tareas]}
+
+    def style_comment(self, decisiones):
+        self.comentadas = decisiones
+        return "Parece que tiendes a ordenar antes de actuar."
 
     def mission_feedback(self, ctx, m, sensacion, nota):
         return "Gracias por intentarlo."
@@ -209,9 +229,10 @@ class Historias(Base):
 
     def test_zonas_bloqueadas(self):
         self.signup()
-        self.assertEqual(self.post("/stories/expectativas/start").status_code, 403)
+        self.assertEqual(self.post("/stories/descanso/start").status_code, 403)
         self.play()
-        self.assertEqual(self.post("/stories/expectativas/start").status_code, 200)
+        self.play("no")
+        self.assertEqual(self.post("/stories/descanso/start").status_code, 200)
 
     def test_recompensas_no_dependen_de_lo_elegido(self):
         xps = []
@@ -239,6 +260,282 @@ class Historias(Base):
             node = self.post(f"/runs/{run}/choose", {"choice": "a"}).json["node"]
         self.post(f"/runs/{run}/finish")
         self.assertEqual(self.post(f"/runs/{run}/finish").status_code, 409)
+
+
+class Recursos(Base):
+    def test_ninguna_decision_es_solo_ganancia_o_solo_costo(self):
+        for story in STORIES.values():
+            for node in story["nodes"].values():
+                for choice in node.get("choices", []):
+                    i = choice_impact(choice)
+                    mejoras = [i["energy"] > 0, i["tension"] < 0, i["performance"] > 0, i["social"] > 0]
+                    costos = [i["energy"] < 0, i["tension"] > 0, i["performance"] < 0, i["social"] < 0]
+                    self.assertTrue(any(mejoras) and any(costos), (story["id"], choice["text"], i))
+
+    def test_el_navegador_ve_el_impacto_y_elegir_lo_aplica(self):
+        self.signup()
+        inicio = self.c.get("/api/state").json["resources"]
+        r = self.post("/stories/semana/start")
+        opcion = r.json["node"]["choices"][0]
+        self.assertEqual(opcion["impact"], {"energy": -15, "tension": 15, "performance": 10, "social": -5})
+        recursos = self.post(f"/runs/{r.json['run_id']}/choose", {"choice": "a"}).json["resources"]
+        self.assertEqual(recursos["energy"], inicio["energy"] - 15)
+        self.assertEqual(recursos["tension"], inicio["tension"] + 15)
+
+    def test_una_decision_no_agota_los_recursos(self):
+        for story in STORIES.values():
+            for node in story["nodes"].values():
+                for choice in node.get("choices", []):
+                    self.assertTrue(all(abs(v) <= 15 for v in choice_impact(choice).values()), choice["text"])
+
+    def test_descansar_recupera_con_espera(self):
+        self.signup()
+        self.play(pick=0)
+        antes = self.c.get("/api/state").json["resources"]
+        r = self.post("/rest")
+        self.assertTrue(r.json["rested"])
+        self.assertGreater(r.json["resources"]["energy"], antes["energy"])
+        otra = self.post("/rest")
+        self.assertFalse(otra.json["rested"])
+        self.assertEqual(otra.json["resources"], r.json["resources"])
+
+    def test_los_valores_se_mantienen_entre_0_y_100(self):
+        self.signup()
+        for _ in range(8):
+            self.play("semana", pick=0)
+        r = self.c.get("/api/state").json["resources"]
+        self.assertTrue(all(0 <= v <= 100 for v in r.values()), r)
+
+    def test_completar_una_mision_recupera(self):
+        self.signup()
+        m = self.analisis(self.play())["missions"][0]
+        antes = self.c.get("/api/state").json["resources"]
+        self.post(f"/missions/{m['id']}/accept")
+        despues = self.post(f"/missions/{m['id']}/complete", {"feeling": "facil"}).json["state"]["resources"]
+        self.assertGreater(despues["energy"], antes["energy"])
+        self.assertLess(despues["tension"], antes["tension"])
+
+    def test_borrar_registros_reinicia_los_recursos(self):
+        self.signup()
+        inicial = self.c.get("/api/state").json["resources"]
+        self.analisis(self.play())
+        self.c.delete("/api/me/records", headers={"X-Levelife": "1"})
+        self.assertEqual(self.c.get("/api/state").json["resources"], inicial)
+
+
+class Semana(Base):
+    TAREAS = [{"name": "Trabajo de Base de Datos", "day": "Miércoles"}, {"name": "Parcial de Cálculo", "day": "Viernes"}]
+
+    def crear(self, tareas=None, area="ingenieria"):
+        return self.post("/week", {"tasks": tareas or self.TAREAS, "area": area})
+
+    def jugar(self, casos=6):
+        for _ in range(casos):
+            r = self.post("/week/choose", {"option": 0})
+            self.assertEqual(r.status_code, 200, r.json)
+        return r
+
+    def test_cada_actividad_tiene_varios_casos(self):
+        self.signup()
+        semana = self.crear().json["week"]
+        self.assertEqual((semana["source"], semana["total"], semana["day"]), ("vela", 6, 0))
+        self.assertEqual(self.agente.cantidad, 3)
+        self.assertEqual(semana["current"]["name"], "Trabajo de Base de Datos")
+        self.assertNotIn("signals", str(semana))
+        self.assertTrue(semana["current"]["options"][0]["impact"])
+
+    def test_con_mas_actividades_son_dos_casos_por_cada_una(self):
+        self.signup()
+        tareas = [{"name": f"Tarea {i}", "day": "Lunes"} for i in range(4)]
+        self.assertEqual(self.crear(tareas).json["week"]["total"], 8)
+
+    def test_ordena_las_actividades_por_fecha(self):
+        self.signup()
+        self.crear([{"name": "Después", "day": "Viernes"}, {"name": "Antes", "day": "Lunes"}])
+        self.assertEqual([t["name"] for t in self.agente.tareas], ["Antes", "Después"])
+
+    def test_cada_respuesta_trae_el_veredicto_de_vela(self):
+        self.signup()
+        self.crear()
+        r = self.post("/week/choose", {"option": 0}).json["verdict"]
+        self.assertEqual(r["label"], "Hoy rindes")
+        self.assertTrue(r["text"])
+
+    def test_veredicto_sigue_el_rendimiento_y_avisa_el_costo(self):
+        normal = {"energy": 60, "tension": 40}
+        self.assertEqual(verdict({"performance": -5}, normal, None)["label"], "Hoy no rindes")
+        self.assertEqual(verdict({"performance": 0}, normal, None)["label"], "Hoy mantienes tu rendimiento")
+        self.assertIn("costo alto", verdict({"performance": 10}, {"energy": 20, "tension": 40}, None)["label"])
+        self.assertEqual(verdict({"performance": 10}, normal, "Texto de Vela.")["text"], "Texto de Vela.")
+
+    def test_vela_comenta_tras_cada_caso_con_todas_las_respuestas(self):
+        self.signup()
+        self.crear()
+        self.post("/week/choose", {"option": 0})
+        self.post("/week/choose", {"option": 0})
+        r = self.post("/week/comment").json
+        self.assertEqual(r["comment"], "Parece que tiendes a ordenar antes de actuar.")
+        self.assertEqual(len(self.agente.comentadas), 2)
+
+    def test_sin_agente_el_comentario_sale_de_los_numeros(self):
+        self.signup()
+        self.crear()
+        with mock.patch.object(service, "get_agent", return_value=None):
+            self.post("/week/choose", {"option": 0})
+            self.assertIn("pista", self.post("/week/comment").json["comment"])
+            self.post("/week/choose", {"option": 0})
+            self.assertIn("tiendes a", self.post("/week/comment").json["comment"])
+
+    def test_sin_consentimiento_vela_no_comenta(self):
+        self.signup(ai=False)
+        self.crear()
+        self.post("/week/choose", {"option": 0})
+        self.assertIsNone(self.post("/week/comment").json["comment"])
+        self.assertFalse(hasattr(self.agente, "comentadas"))
+
+    def test_pendientes_vacios_o_invalidos(self):
+        self.signup()
+        for tareas in ([], "x", [{"name": "  "}]):
+            self.assertEqual(self.post("/week", {"tasks": tareas, "area": "salud"}).status_code, 400)
+
+    def test_analiza_patrones_y_da_una_mision_por_actividad(self):
+        self.signup()
+        self.crear()
+        self.assertEqual(self.post("/week/plan").status_code, 409, "no hay plan antes de terminar")
+        self.assertTrue(self.jugar().json["week"]["finished"])
+        self.assertEqual(self.post("/week/choose", {"option": 0}).status_code, 409)
+        plan = self.post("/week/plan").json["plan"]
+        self.assertEqual([m["task"] for m in plan["missions"]], [t["name"] for t in self.TAREAS])
+        self.assertEqual(self.agente.repetidas[0]["count"], 6)
+        self.assertEqual(plan["patterns"][0]["tag"], "priorizacion_activa")
+        self.assertEqual(plan["patterns"][0]["guidance"], "Reserva una pausa.")
+        self.assertEqual(len(plan["strategies"]), 2)
+        self.assertEqual(len(plan["dimensions"]), 4)
+        self.assertEqual(plan["goals"][0]["goal"], "Elegir una prioridad.")
+        self.assertTrue(self.agente.dificiles, "Vela recibe los casos que más costaron")
+        self.assertEqual(len(self.agente.decisiones), 6)
+
+    def test_area_adapta_los_casos(self):
+        self.signup()
+        self.assertEqual(self.crear(area="desconocida").status_code, 400)
+        self.crear(area="salud")
+        self.assertEqual(self.agente.area, "Ciencias de la Salud")
+        self.assertIn("guardias exigentes", self.agente.conflictos)
+        self.assertEqual(len(self.c.get("/api/week").json["areas"]), 4)
+
+    def test_casos_base_usan_escenarios_del_area(self):
+        self.signup()
+        with mock.patch.object(service, "get_agent", return_value=None):
+            caso = self.crear(area="salud").json["week"]["current"]
+        self.assertIn("guardia", caso["scene"])
+
+    def test_marcar_mision_recupera_una_sola_vez(self):
+        self.signup()
+        self.crear()
+        self.jugar()
+        self.post("/week/plan")
+        primera = self.post("/week/missions/0/done").json
+        self.assertTrue(primera["plan"]["missions"][0]["done"])
+        self.assertEqual(self.post("/week/missions/0/done").json["resources"], primera["resources"])
+        self.assertTrue(self.c.get("/api/week").json["week"]["plan"]["missions"][0]["done"])
+        self.assertEqual(self.post("/week/missions/9/done").status_code, 404)
+
+    def test_sin_agente_usa_casos_base_identificados(self):
+        self.signup()
+        with mock.patch.object(service, "get_agent", return_value=None):
+            semana = self.crear().json["week"]
+            self.assertEqual((semana["source"], semana["total"]), ("plantilla", 6))
+            self.jugar()
+            plan = self.post("/week/plan").json["plan"]
+        self.assertIn("Reporte base", plan["summary"])
+        self.assertEqual(len(plan["strategies"]), 2, "las microestrategias no dependen del modelo")
+        self.assertEqual(len(plan["goals"]), 2, "las metas tampoco")
+        self.assertEqual(len(plan["goals"][0]["steps"]), 3)
+        self.assertEqual(len(plan["missions"]), 2)
+
+    def test_sin_consentimiento_nada_llega_al_modelo(self):
+        self.signup(ai=False)
+        self.assertEqual(self.crear().json["week"]["source"], "plantilla")
+        self.jugar()
+        self.post("/week/plan")
+        self.assertFalse(hasattr(self.agente, "tareas"))
+        self.assertFalse(hasattr(self.agente, "decisiones"))
+
+    def test_riesgo_no_llega_al_modelo(self):
+        self.signup()
+        r = self.post("/week", {"tasks": [{"name": "quiero morir", "day": "Lunes"}], "area": "salud"})
+        self.assertIn("emergencias", r.json["support"])
+        self.assertFalse(hasattr(self.agente, "tareas"))
+
+    def test_nueva_semana_reinicia_los_recursos(self):
+        self.signup()
+        self.crear()
+        self.post("/week/choose", {"option": 0})
+        self.crear()
+        self.assertEqual(self.c.get("/api/state").json["resources"], {"energy": 80, "tension": 30, "performance": 50, "social": 50})
+
+
+class Telemetria(unittest.TestCase):
+    RECURSOS = {"energy": 60, "tension": 40, "performance": 60, "social": 60}
+
+    def caso(self, codigo):
+        return {"chosen": 0, "options": [{"signals": [codigo]}]}
+
+    def test_una_decision_aislada_no_es_patron(self):
+        r = analyze_session([self.caso("priorizar"), self.caso("descansar")], self.RECURSOS)
+        self.assertEqual(r["patterns"], [])
+
+    def test_patron_repetido_con_su_consecuencia_real(self):
+        r = analyze_session([self.caso("sin_pausas"), self.caso("sin_pausas")], self.RECURSOS)
+        patron = r["patterns"][0]
+        self.assertEqual((patron["tag"], patron["count"]), ("sacrificio_descanso", 2))
+        self.assertIn("+20% Rendimiento Académico", patron["consequence"])
+        self.assertIn("-30% Energía Ejecutiva", patron["consequence"])
+
+    def test_situaciones_dificiles_salen_de_los_costos_reales(self):
+        casos = [{"task": "A", "scene": "Leve", "chosen": 0, "options": [{"text": "x", "signals": ["pedir_apoyo"]}]},
+                 {"task": "B", "scene": "Dura", "chosen": 0, "options": [{"text": "y", "signals": ["sobrecarga"]}]},
+                 {"task": "C", "scene": "Sin elegir", "options": [{"text": "z", "signals": ["sobrecarga"]}]}]
+        dificiles = hard_situations(casos)
+        self.assertEqual([c["situation"] for c in dificiles], ["Dura", "Leve"])
+        self.assertEqual(len(default_goals(dificiles)), 2)
+
+    def test_sin_elecciones_no_hay_metas(self):
+        self.assertEqual(default_goals(hard_situations([{"scene": "S", "options": []}])), [])
+
+    def test_alertas_de_dimensiones(self):
+        r = analyze_session([], {"energy": 20, "tension": 75, "performance": 60, "social": 29})
+        alertas = {d["key"]: d["alert"] for d in r["dimensions"]}
+        self.assertEqual(alertas, {"energy": "Nivel bajo", "tension": "Tensión elevada", "performance": None, "social": "Nivel bajo"})
+        self.assertEqual(len(r["alerts"]), 3)
+
+    def test_tension_baja_no_es_alerta(self):
+        r = analyze_session([], {"energy": 60, "tension": 5, "performance": 60, "social": 60})
+        self.assertEqual(r["alerts"], [])
+
+    def test_reporte_sin_vocabulario_clinico_y_con_derivacion(self):
+        codigos = list(PATTERNS)
+        r = analyze_session([self.caso(c) for c in codigos * 2], self.RECURSOS)
+        self.assertTrue(safety.output_is_safe(str(r)))
+        self.assertIn("Bienestar Universitario", r["referral"]["text"])
+
+    def test_filtro_bloquea_terminos_clinicos(self):
+        for frase in ("podría ser burnout", "tienes depresión", "un síntoma claro", "signos depresivos"):
+            self.assertFalse(safety.output_is_safe(frase), frase)
+
+    def test_dos_microestrategias_segun_lo_mas_exigido(self):
+        dims = analyze_session([], {"energy": 20, "tension": 90, "performance": 60, "social": 60})["dimensions"]
+        self.assertEqual(default_strategies(dims), [STRATEGIES["tension"], STRATEGIES["energy"]])
+
+    def test_escenarios_son_validos_y_equilibrados(self):
+        for area in AREAS:
+            for caso in pool(area):
+                self.assertIn("{task}", caso["scene"])
+                self.assertEqual(len(caso["options"]), 3)
+                for opcion in caso["options"]:
+                    i = choice_impact(opcion)
+                    self.assertTrue(i["energy"] > 0 or i["tension"] < 0 or i["performance"] > 0 or i["social"] > 0, opcion)
+                    self.assertTrue(i["energy"] < 0 or i["tension"] > 0 or i["performance"] < 0 or i["social"] < 0, opcion)
 
 
 class Misiones(Base):
